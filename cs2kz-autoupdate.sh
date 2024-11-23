@@ -15,10 +15,10 @@ BUILD_RESULTS_DIR="${REPO_DIR}/build/package/addons/cs2kz/"
 
 # Replace with the destination directory for build results
 DEST_DIRS=(
-    "/home/cs2-fkz-1/serverfiles/game/csgo/addons/cs2kz"
-    "/home/cs2-fkz-2/serverfiles/game/csgo/addons/cs2kz"
-    "/home/cs2-fkz-3/serverfiles/game/csgo/addons/cs2kz"
-    "/home/cs2-fkz-5/serverfiles/game/csgo/addons/cs2kz"
+    "/home/cs2-fkz-1/serverfiles/game/csgo/addons/cs2kz:cs2-fkz-1"
+    "/home/cs2-fkz-2/serverfiles/game/csgo/addons/cs2kz:cs2-fkz-2"
+    "/home/cs2-fkz-3/serverfiles/game/csgo/addons/cs2kz:cs2-fkz-3"
+    "/home/cs2-fkz-5/serverfiles/game/csgo/addons/cs2kz:cs2-fkz-5"
 )
 
 # Replace with the list of specific files to monitor for changes, leave empty if not needed
@@ -97,11 +97,15 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
                     fi
                     
                     echo "Copying build results to $DEST_DIR..."
-                    sudo rsync -a --delete "$BUILD_RESULTS_DIR/" "$DEST_DIR/"
+                    for DEST_DIR in "${DEST_DIRS[@]}"; do
+                        USER=$(echo "$DEST_DIR" | cut -d: -f2)
+                        DIR=$(echo "$DEST_DIR" | cut -d: -f1)
+                        sudo rsync -a --delete --chown=$USER:$USER "$BUILD_RESULTS_DIR/" "$DIR/"
+                    done
                     if [ $? -eq 0 ]; then
-                        echo "Build results successfully copied to $DEST_DIR."
+                        echo "Build results successfully copied to all destinations."
                     else
-                        echo "Failed to copy build results to $DEST_DIR."
+                        echo "Failed to copy build results to all destinations."
                     fi
                 done
                 
