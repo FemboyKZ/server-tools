@@ -28,6 +28,12 @@ FILES_TO_CHECK=("kz_mode_ckz.cpp" "kz_mode_ckz.h")
 DISCORD_WEBHOOK="https://discord.com/api/webhooks/your_webhook_id/your_webhook_token"
 LOG_FILE="/var/log/cs2kz-autoupdate.log"
 
+# Colors
+RED=16711680
+YELLOW=16776960
+GREEN=65280
+BLUE=255
+
 send_discord_notification_embed() {
     local title="$1"
     local description="$2"
@@ -51,7 +57,7 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
     send_discord_notification_embed \
         "⚠️ New Upstream Changes" \
         "Found $NEW_COMMITS new commit(s) in upstream \`$UPSTREAM_BRANCH\`. Merging changes..." \
-        65280
+        $BLUE
     
     git checkout "$LOCAL_BRANCH"
     git merge upstream/"$UPSTREAM_BRANCH" --no-edit --gpg-sign
@@ -61,7 +67,7 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
         send_discord_notification_embed \
             "✔️ Merge Successful" \
             "Merge successful for branch \`$LOCAL_BRANCH\` with upstream \`$UPSTREAM_BRANCH\`. Checking for specific file changes..." \
-            65280
+            $GREEN
         
         FILES_CHANGED=false
         for FILE in "${FILES_TO_CHECK[@]}"; do
@@ -79,7 +85,7 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
             send_discord_notification_embed \
                 "✔️ Build Successful" \
                 "Build successful for branch \`$LOCAL_BRANCH\`. Uploading build results..." \
-                65280
+                $GREEN
 
             if [ "$FILES_CHANGED" = false ]; then
                 echo "No changes detected in specified files. Copying build results to all destinations..."
@@ -105,14 +111,14 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
                 send_discord_notification_embed \
                     "⚠️ Monitored Files Changed" \
                     "Monitored files were modified in the upstream changes. Build results were not copied." \
-                    16776960
+                    $YELLOW
             fi
         else
             echo "Build failed!"
             send_discord_notification_embed \
                 "❌ Build Failed" \
                 "The build for branch \`$LOCAL_BRANCH\` failed after merging upstream \`$UPSTREAM_BRANCH\`." \
-                16711680
+                $RED
             exit 1
         fi
     else
@@ -120,7 +126,7 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
         send_discord_notification_embed \
             "❌ Merge Conflict" \
             "Merge failed for branch \`$LOCAL_BRANCH\` with upstream \`$UPSTREAM_BRANCH\`. Manual intervention required." \
-            16711680
+            $RED
         exit 1
     fi
 else
