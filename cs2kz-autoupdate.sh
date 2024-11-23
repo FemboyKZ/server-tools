@@ -60,7 +60,7 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
         $BLUE
     
     git checkout "$LOCAL_BRANCH"
-    git merge upstream/"$UPSTREAM_BRANCH" --no-edit --gpg-sign
+    git pull
 
     if [ $? -eq 0 ]; then
         echo "Merge successful. Checking for specific file changes..."
