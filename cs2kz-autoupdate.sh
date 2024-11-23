@@ -22,7 +22,7 @@ DEST_DIRS=(
 )
 
 # Replace with the list of specific files to monitor for changes, leave empty if not needed
-FILES_TO_CHECK=("kz_mode_ckz.cpp" "kz_mode_ckz.h")
+FILES_TO_CHECK=("cs2kz-server-config.txt" "cs2kz.cfg" "kz_mode_ckz.cpp" "kz_mode_ckz.h")
 
 # Logs & Discord webhook
 DISCORD_WEBHOOK="https://discord.com/api/webhooks/your_webhook_id/your_webhook_token"
