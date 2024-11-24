@@ -17,6 +17,8 @@ FILES_TO_CHECK=$(jq -r '.cs2kz_autoupdate.files_to_check[]' "$CONFIG_FILE")
 DISCORD_WEBHOOK=$(jq -r '.cs2kz_autoupdate.webhook_url' "$CONFIG_FILE")
 LOG_FILE=$(jq -r '.cs2kz_autoupdate.log_file' "$CONFIG_FILE")
 
+USERNAME=$(jq -r '.cs2kz_autoupdate.username' "$CONFIG_FILE")
+
 RED=16711680
 YELLOW=16776960
 GREEN=65280
@@ -36,7 +38,7 @@ send_discord_notification_embed() {
     }" "$DISCORD_WEBHOOK"
 }
 
-cd "$REPO_DIR" || { echo "Repository not found at $REPO_DIR"; exit 1; }
+cd "$REPO_DIR" || { echo "Repository not found at \`$REPO_DIR\`"; exit 1; }
 
 if ! git remote -v | grep -q "upstream"; then
   echo "Upstream repository not configured"
@@ -58,7 +60,7 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
         "Found $NEW_COMMITS new commit(s) in upstream \`$UPSTREAM_BRANCH\`. Attempting to merge changes..." \
         $BLUE
 
-    if ! git checkout $LOCAL_BRANCH; then
+    if ! git checkout "$LOCAL_BRANCH"; then
         echo "Error Checking Out Branch"
         send_discord_notification_embed \
             "❌ Error Checking Out Branch" \
@@ -67,34 +69,26 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
         exit 1
     fi
     
-    if ! git merge upstream/$UPSTREAM_BRANCH; then
+    if ! git merge -m "Automated merge of upstream/$UPSTREAM_BRANCH" --username "$USERNAME" --no-ff --strategy=recursive --strategy-option=ours -S upstream/"$UPSTREAM_BRANCH"; then
         echo "Error merging upstream changes"
-        send_discord_notification_embed \
-            "❌ Error Merging Upstream Changes" \
-            "Error merging upstream `$UPSTREAM_BRANCH` into local branch `$LOCAL_BRANCH`" \
-            $RED
         exit 1
     fi
     
-    if ! git push origin $LOCAL_BRANCH; then
+    if ! git push origin "$LOCAL_BRANCH"; then
         echo "Error pushing changes"
         send_discord_notification_embed \
             "❌ Error Pushing Changes" \
-            "Error pushing changes to upstream `$UPSTREAM_BRANCH`" \
+            "Error pushing changes to upstream \`$UPSTREAM_BRANCH\`" \
             $RED
         exit 1
     fi
 
     if [ $? -eq 0 ]; then
         echo "Merge and push successful. Checking for specific file changes..."
-        send_discord_notification_embed \
-            "✔️ Merge and Push Successful" \
-            "Merge and push successful for branch \`$LOCAL_BRANCH\` with upstream \`$UPSTREAM_BRANCH\`. Checking for specific file changes..." \
-            $GREEN
         
         FILES_CHANGED=false
         for FILE in "${FILES_TO_CHECK[@]}"; do
-            if git diff --name-only HEAD..upstream/$UPSTREAM_BRANCH | grep -q "$FILE"; then
+            if git diff --name-only HEAD..upstream/"$UPSTREAM_BRANCH" | grep -q "$FILE"; then
                 FILES_CHANGED=true
                 echo "Detected changes to $FILE."
             fi
@@ -115,11 +109,11 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
                 
                 for DEST_DIR in "${DEST_DIRS[@]}"; do
                     if [ ! -d "$DEST_DIR" ]; then
-                        echo "Destination directory $DEST_DIR does not exist. Skipping..."
+                        echo "Destination directory \`$DEST_DIR\` does not exist. Skipping..."
                         continue
                     fi
                     
-                    echo "Copying build results to $DEST_DIR..."
+                    echo "Copying build results to \`$DEST_DIR\`..."
                     for DEST_DIR in "${DEST_DIRS[@]}"; do
                         USER=$(echo "$DEST_DIR" | cut -d: -f2)
                         DIR=$(echo "$DEST_DIR" | cut -d: -f1)
@@ -158,7 +152,8 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
     fi
 else
     echo "No new commits found. Repository is up-to-date."
+    exit 0
 fi
 
-# Log the output
 echo "$(date) - $0 - $(cat /dev/stdout)" >> "$LOG_FILE"
+exit 0
