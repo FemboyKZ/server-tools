@@ -2,14 +2,16 @@
 
 CONFIG_FILE=config.json
 if [ ! -f "$CONFIG_FILE" ]; then
-    CONFIG_FILE=config.json.example
+    CONFIG_FILE=config.example.json
 fi
 
 LOCAL_BRANCH=$(jq -r '.cs2kz_autoupdate.local_branch' "$CONFIG_FILE")
 UPSTREAM_BRANCH=$(jq -r '.cs2kz_autoupdate.upstream_branch' "$CONFIG_FILE")
-BUILD_COMMAND=$(jq -r '.cs2kz_autoupdate.build_command' "$CONFIG_FILE")
-REPO_DIR=$(jq -r '.cs2kz_autoupdate.repo_dir' "$CONFIG_FILE")
+UPSTREAM_REPO=$(jq -r '.cs2kz_autoupdate.upstream_repo' "$CONFIG_FILE")
 
+BUILD_COMMAND=$(jq -r '.cs2kz_autoupdate.build_command' "$CONFIG_FILE")
+
+REPO_DIR=$(jq -r '.cs2kz_autoupdate.repo_dir' "$CONFIG_FILE")
 BUILD_RESULTS_DIR="${REPO_DIR}/build/package/addons/cs2kz/"
 DEST_DIRS=$(jq -r '.cs2kz_autoupdate.destination_dirs[]' "$CONFIG_FILE")
 
@@ -37,7 +39,18 @@ send_discord_notification_embed() {
 }
 
 cd "$REPO_DIR" || { echo "Repository not found at $REPO_DIR"; exit 1; }
-git fetch upstream
+
+if ! git remote -v | grep -q "upstream"; then
+  echo "Upstream repository not configured"
+  exit 1
+fi
+
+if ! git fetch upstream; then
+  echo "Error fetching from upstream repository"
+  git remote add upstream "$UPSTREAM_REPO"
+  exit 1
+fi
+
 NEW_COMMITS=$(git rev-list HEAD..upstream/$UPSTREAM_BRANCH --count)
 
 if [ "$NEW_COMMITS" -gt 0 ]; then
