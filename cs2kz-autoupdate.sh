@@ -9,8 +9,6 @@ LOCAL_BRANCH=$(jq -r '.cs2kz_autoupdate.local_branch' "$CONFIG_FILE")
 UPSTREAM_BRANCH=$(jq -r '.cs2kz_autoupdate.upstream_branch' "$CONFIG_FILE")
 UPSTREAM_REPO=$(jq -r '.cs2kz_autoupdate.upstream_repo' "$CONFIG_FILE")
 
-BUILD_COMMAND=$(jq -r '.cs2kz_autoupdate.build_command' "$CONFIG_FILE")
-
 REPO_DIR=$(jq -r '.cs2kz_autoupdate.repo_dir' "$CONFIG_FILE")
 BUILD_RESULTS_DIR="${REPO_DIR}/build/package/addons/cs2kz/"
 DEST_DIRS=$(jq -r '.cs2kz_autoupdate.destination_dirs[]' "$CONFIG_FILE")
@@ -85,7 +83,7 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
         done
         
         echo "Starting build process..."
-        $BUILD_COMMAND
+        bash -c "cd build && python3 ../configure.py && ambuild;"
         
         if [ $? -eq 0 ]; then
             echo "Build completed successfully."

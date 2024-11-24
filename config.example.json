@@ -5,7 +5,6 @@
     "upstream_repo": "https://github.com/KZGlobalTeam/cs2kz-metamod.git",
     "upstream_branch": "dev",
     "local_branch": "dev",
-    "build_command": "cd build && python3 ../configure.py && ambuild",
     "files_to_check": ["cs2kz-server-config.txt", "cs2kz.cfg"],
     "destination_dirs": [
       "/home/user1/serverfiles/game/csgo/addons/cs2kz:user1",
