@@ -2,13 +2,11 @@
   "cs2kz_autoupdate": {
     "webhook_url": "https://discord.com/api/webhooks/your_webhook_id/your_webhook_token",
     "repo_dir": "/home/user/server-tools/cs2kz-metamod/",
+    "upstream_repo": "https://github.com/KZGlobalTeam/cs2kz-metamod.git",
     "upstream_branch": "dev",
     "local_branch": "dev",
     "build_command": "cd build && python3 ../configure.py && ambuild",
-    "files_to_check": [
-      "cs2kz-server-config.txt",
-      "cs2kz.cfg"
-    ],
+    "files_to_check": ["cs2kz-server-config.txt", "cs2kz.cfg"],
     "destination_dirs": [
       "/home/user1/serverfiles/game/csgo/addons/cs2kz:user1",
       "/home/user2/serverfiles/game/csgo/addons/cs2kz:user2"
