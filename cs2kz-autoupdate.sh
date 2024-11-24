@@ -53,20 +53,26 @@ git fetch upstream
 NEW_COMMITS=$(git rev-list HEAD..upstream/$UPSTREAM_BRANCH --count)
 
 if [ "$NEW_COMMITS" -gt 0 ]; then
-    echo "Found $NEW_COMMITS new commit(s). Merging changes..."
+    echo "Found $NEW_COMMITS new commit(s). Pulling changes..."
     send_discord_notification_embed \
         "⚠️ New Upstream Changes" \
-        "Found $NEW_COMMITS new commit(s) in upstream \`$UPSTREAM_BRANCH\`. Merging changes..." \
+        "Found $NEW_COMMITS new commit(s) in upstream \`$UPSTREAM_BRANCH\`. Pulling changes..." \
         $BLUE
     
-    git checkout "$LOCAL_BRANCH"
-    git pull
+    if ! git pull; then
+        echo "Error pulling changes"
+        send_discord_notification_embed \
+            "❌ Error Pulling Changes" \
+            "Error pulling changes from upstream `$UPSTREAM_BRANCH`" \
+            $RED
+        exit 1
+    fi
 
     if [ $? -eq 0 ]; then
-        echo "Merge successful. Checking for specific file changes..."
+        echo "Pull successful. Checking for specific file changes..."
         send_discord_notification_embed \
-            "✔️ Merge Successful" \
-            "Merge successful for branch \`$LOCAL_BRANCH\` with upstream \`$UPSTREAM_BRANCH\`. Checking for specific file changes..." \
+            "✔️ Pull Successful" \
+            "Pull successful for branch \`$LOCAL_BRANCH\` with upstream \`$UPSTREAM_BRANCH\`. Checking for specific file changes..." \
             $GREEN
         
         FILES_CHANGED=false
