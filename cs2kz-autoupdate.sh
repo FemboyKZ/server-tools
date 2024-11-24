@@ -52,26 +52,44 @@ fi
 NEW_COMMITS=$(git rev-list HEAD..upstream/$UPSTREAM_BRANCH --count)
 
 if [ "$NEW_COMMITS" -gt 0 ]; then
-    echo "Found $NEW_COMMITS new commit(s). Pulling changes..."
+    echo "Found $NEW_COMMITS new commit(s). Attempting to merge changes..."
     send_discord_notification_embed \
         "⚠️ New Upstream Changes" \
-        "Found $NEW_COMMITS new commit(s) in upstream \`$UPSTREAM_BRANCH\`. Pulling changes..." \
+        "Found $NEW_COMMITS new commit(s) in upstream \`$UPSTREAM_BRANCH\`. Attempting to merge changes..." \
         $BLUE
-    
-    if ! git pull; then
-        echo "Error pulling changes"
+
+    if ! git checkout $LOCAL_BRANCH; then
+        echo "Error Checking Out Branch"
         send_discord_notification_embed \
-            "❌ Error Pulling Changes" \
-            "Error pulling changes from upstream `$UPSTREAM_BRANCH`" \
+            "❌ Error Checking Out Branch" \
+            "Error checking out branch \`$LOCAL_BRANCH\`" \
+            $RED
+        exit 1
+    fi
+    
+    if ! git merge upstream/$UPSTREAM_BRANCH; then
+        echo "Error merging upstream changes"
+        send_discord_notification_embed \
+            "❌ Error Merging Upstream Changes" \
+            "Error merging upstream `$UPSTREAM_BRANCH` into local branch `$LOCAL_BRANCH`" \
+            $RED
+        exit 1
+    fi
+    
+    if ! git push origin $LOCAL_BRANCH; then
+        echo "Error pushing changes"
+        send_discord_notification_embed \
+            "❌ Error Pushing Changes" \
+            "Error pushing changes to upstream `$UPSTREAM_BRANCH`" \
             $RED
         exit 1
     fi
 
     if [ $? -eq 0 ]; then
-        echo "Pull successful. Checking for specific file changes..."
+        echo "Merge and push successful. Checking for specific file changes..."
         send_discord_notification_embed \
-            "✔️ Pull Successful" \
-            "Pull successful for branch \`$LOCAL_BRANCH\` with upstream \`$UPSTREAM_BRANCH\`. Checking for specific file changes..." \
+            "✔️ Merge and Push Successful" \
+            "Merge and push successful for branch \`$LOCAL_BRANCH\` with upstream \`$UPSTREAM_BRANCH\`. Checking for specific file changes..." \
             $GREEN
         
         FILES_CHANGED=false
