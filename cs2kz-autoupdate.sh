@@ -1,32 +1,21 @@
 #!/bin/bash
 
-# Define variables
-LOCAL_BRANCH="fkz-auto"     # Replace with your local branch name
-UPSTREAM_BRANCH="dev"       # Replace with the upstream branch name
+CONFIG_FILE=config.json
+if [ ! -f "$CONFIG_FILE" ]; then
+    CONFIG_FILE=config.json.example
+fi
 
-# Replace with your build command
-BUILD_COMMAND="cd build && python3 ../configure.py && ambuild"
+LOCAL_BRANCH=$(jq -r '.cs2kz_autoupdate.local_branch' "$CONFIG_FILE")
+UPSTREAM_BRANCH=$(jq -r '.cs2kz_autoupdate.upstream_branch' "$CONFIG_FILE")
+BUILD_COMMAND=$(jq -r '.cs2kz_autoupdate.build_command' "$CONFIG_FILE")
+REPO_DIR=$(jq -r '.cs2kz_autoupdate.repo_dir' "$CONFIG_FILE")
 
-# Replace with the path to your local repo
-REPO_DIR="/home/web-misc/server-tools/cs2kz-metamod/"
-
-# Replace with the path to your build results directory
 BUILD_RESULTS_DIR="${REPO_DIR}/build/package/addons/cs2kz/"
+DEST_DIRS=$(jq -r '.cs2kz_autoupdate.destination_dirs[]' "$CONFIG_FILE")
 
-# Replace with the destination directory for build results
-DEST_DIRS=(
-    "/home/cs2-fkz-1/serverfiles/game/csgo/addons/cs2kz:cs2-fkz-1"
-    "/home/cs2-fkz-2/serverfiles/game/csgo/addons/cs2kz:cs2-fkz-2"
-    "/home/cs2-fkz-3/serverfiles/game/csgo/addons/cs2kz:cs2-fkz-3"
-    "/home/cs2-fkz-5/serverfiles/game/csgo/addons/cs2kz:cs2-fkz-5"
-)
-
-# Replace with the list of specific files to monitor for changes, leave empty if not needed
-FILES_TO_CHECK=("cs2kz-server-config.txt" "cs2kz.cfg" "kz_mode_ckz.cpp" "kz_mode_ckz.h")
-
-# Logs & Discord webhook
-DISCORD_WEBHOOK="https://discord.com/api/webhooks/your_webhook_id/your_webhook_token"
-LOG_FILE="/var/log/cs2kz-autoupdate.log"
+FILES_TO_CHECK=$(jq -r '.cs2kz_autoupdate.files_to_check[]' "$CONFIG_FILE")
+DISCORD_WEBHOOK=$(jq -r '.cs2kz_autoupdate.webhook_url' "$CONFIG_FILE")
+LOG_FILE=$(jq -r '.cs2kz_autoupdate.log_file' "$CONFIG_FILE")
 
 # Colors
 RED=16711680
@@ -77,7 +66,7 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
         
         FILES_CHANGED=false
         for FILE in "${FILES_TO_CHECK[@]}"; do
-            if git diff --name-only HEAD~1 | grep -q "$FILE"; then
+            if git diff --name-only HEAD..upstream/$UPSTREAM_BRANCH | grep -q "$FILE"; then
                 FILES_CHANGED=true
                 echo "Detected changes to $FILE."
             fi
