@@ -39,13 +39,18 @@ send_discord_notification_embed() {
 cd "$REPO_DIR" || { echo "Repository not found at \`$REPO_DIR\`"; exit 1; }
 
 if ! git remote -v | grep -q "upstream"; then
-  echo "Upstream repository not configured"
-  exit 1
+  echo "Upstream repository not configured, attempting to set URL..."
+    if ! git remote set-url upstream "$UPSTREAM_REPO"; then
+    echo "Error setting upstream repository URL, attempting to add..."
+    if ! git remote add upstream "$UPSTREAM_REPO"; then
+      echo "Error adding upstream repository"
+      exit 1
+    fi
+  fi
 fi
 
 if ! git fetch upstream; then
-  echo "Error fetching from upstream repository"
-  git remote add upstream "$UPSTREAM_REPO"
+  echo "Error fetching from upstream repository."
   exit 1
 fi
 
@@ -56,14 +61,14 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
     send_discord_notification_embed \
         "⚠️ New Upstream Changes" \
         "Found $NEW_COMMITS new commit(s) in upstream \`$UPSTREAM_BRANCH\`. Attempting to merge changes..." \
-        $BLUE
+        "$BLUE"
 
     if ! git checkout "$LOCAL_BRANCH"; then
         echo "Error Checking Out Branch"
         send_discord_notification_embed \
             "❌ Error Checking Out Branch" \
             "Error checking out branch \`$LOCAL_BRANCH\`" \
-            $RED
+            "$RED"
         exit 1
     fi
     
@@ -77,7 +82,7 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
         send_discord_notification_embed \
             "❌ Error Pushing Changes" \
             "Error pushing changes to upstream \`$UPSTREAM_BRANCH\`" \
-            $RED
+            "$RED"
         exit 1
     fi
 
@@ -100,7 +105,7 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
             send_discord_notification_embed \
                 "✔️ Build Successful" \
                 "Build successful for branch \`$LOCAL_BRANCH\`. Uploading build results..." \
-                $GREEN
+                "$GREEN"
 
             if [ "$FILES_CHANGED" = false ]; then
                 echo "No changes detected in specified files. Copying build results to all destinations..."
@@ -130,14 +135,14 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
                 send_discord_notification_embed \
                     "⚠️ Monitored Files Changed" \
                     "Monitored files were modified in the upstream changes. Build results were not copied." \
-                    $YELLOW
+                    "$YELLOW"
             fi
         else
             echo "Build failed!"
             send_discord_notification_embed \
                 "❌ Build Failed" \
                 "The build for branch \`$LOCAL_BRANCH\` failed after merging upstream \`$UPSTREAM_BRANCH\`." \
-                $RED
+                "$RED"
             exit 1
         fi
     else
@@ -145,7 +150,7 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
         send_discord_notification_embed \
             "❌ Merge Conflict" \
             "Merge failed for branch \`$LOCAL_BRANCH\` with upstream \`$UPSTREAM_BRANCH\`. Manual intervention required." \
-            $RED
+            "$RED"
         exit 1
     fi
 else
