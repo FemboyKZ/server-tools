@@ -64,7 +64,6 @@ send_discord_notification_embed() {
     }"
 
     curl -H "Content-Type: application/json" -X POST -d "$payload" "$DISCORD_WEBHOOK"
-
 }
 
 log "Starting Check for Upstream Changes..."
