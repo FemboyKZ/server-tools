@@ -52,13 +52,19 @@ send_discord_notification_embed() {
     local description="$2"
     local color="$3"
     
-    curl -H "Content-Type: application/json" -X POST -d "{
+    title=$(echo "$title" | sed 's/"/\\"/g')
+    description=$(echo "$description" | sed 's/"/\\"/g')
+    
+    local payload="{
         \"embeds\": [{
             \"title\": \"$title\",
             \"description\": \"$description\",
             \"color\": $color
         }]
-    }" "$DISCORD_WEBHOOK"
+    }"
+
+    curl -H "Content-Type: application/json" -X POST -d "$payload" "$DISCORD_WEBHOOK"
+
 }
 
 log "Starting Check for Upstream Changes..."
