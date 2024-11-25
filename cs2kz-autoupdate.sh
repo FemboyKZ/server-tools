@@ -17,8 +17,6 @@ FILES_TO_CHECK=$(jq -r '.cs2kz_autoupdate.files_to_check[]' "$CONFIG_FILE")
 DISCORD_WEBHOOK=$(jq -r '.cs2kz_autoupdate.webhook_url' "$CONFIG_FILE")
 LOG_FILE=$(jq -r '.cs2kz_autoupdate.log_file' "$CONFIG_FILE")
 
-USERNAME=$(jq -r '.cs2kz_autoupdate.username' "$CONFIG_FILE")
-
 RED=16711680
 YELLOW=16776960
 GREEN=65280
@@ -69,7 +67,7 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
         exit 1
     fi
     
-    if ! git merge -m "Automated merge of upstream/$UPSTREAM_BRANCH" --username "$USERNAME" --no-ff --strategy=recursive --strategy-option=ours -S upstream/"$UPSTREAM_BRANCH"; then
+    if ! git merge -m "Automated merge of upstream/$UPSTREAM_BRANCH" --no-ff --strategy=recursive --strategy-option=ours -S upstream/"$UPSTREAM_BRANCH"; then
         echo "Error merging upstream changes"
         exit 1
     fi
