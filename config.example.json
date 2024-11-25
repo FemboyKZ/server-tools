@@ -2,7 +2,7 @@
   "cs2kz_autoupdate": {
     "webhook_url": "https://discord.com/api/webhooks/your_webhook_id/your_webhook_token",
     "repo_dir": "/home/user/server-tools/cs2kz-metamod/",
-    "upstream_repo": "https://github.com/KZGlobalTeam/cs2kz-metamod.git",
+    "upstream_repo": "git@github.com:KZGlobalTeam/cs2kz-metamod",
     "upstream_branch": "dev",
     "local_branch": "dev",
     "files_to_check": ["cs2kz-server-config.txt", "cs2kz.cfg"],
