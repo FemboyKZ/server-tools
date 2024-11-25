@@ -123,7 +123,10 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
         
         FILES_CHANGED=false
         for FILE in "${FILES_TO_CHECK[@]}"; do
-            if git diff --name-only HEAD..upstream/"$UPSTREAM_BRANCH" | grep -q "$FILE"; then
+            log "Checking for changes in file: $FILE"
+            CHANGED_FILES=$(git diff --name-only HEAD..upstream/"$UPSTREAM_BRANCH")
+            log "Changed files: $CHANGED_FILES"
+            if echo "$CHANGED_FILES" | grep -q "$FILE"; then
                 FILES_CHANGED=true
                 log "Detected changes to $FILE."
             fi
