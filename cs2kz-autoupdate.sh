@@ -1,8 +1,18 @@
 #!/bin/bash
 
+if ! command -v jq &> /dev/null; then
+    echo "jq could not be found, please install it."
+    exit 1
+fi
+
 CONFIG_FILE=config.json
 if [ ! -f "$CONFIG_FILE" ]; then
     CONFIG_FILE=config.example.json
+fi
+
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo "Configuration file not found!"
+    exit 1
 fi
 
 LOCAL_BRANCH=$(jq -r '.cs2kz_autoupdate.local_branch' "$CONFIG_FILE")
@@ -22,10 +32,10 @@ if [ ! -f "$LOG_FILE" ]; then
 fi
 
 log() {
-    log "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
 }
 
-exec >> "$LOG_FILE" 2>&1
+exec > >(while read -r line; do log "$line"; done) 2>&1
 
 RED=16711680
 YELLOW=16776960
@@ -170,5 +180,4 @@ else
     exit 0
 fi
 
-log "$(date) - $0 - $(cat /dev/stdout)" >> "$LOG_FILE"
 exit 0
