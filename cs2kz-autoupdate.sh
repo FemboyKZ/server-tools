@@ -26,9 +26,14 @@ DEST_DIRS=$(jq -r '.cs2kz_autoupdate.destination_dirs[]' "$CONFIG_FILE")
 FILES_TO_CHECK=$(jq -r '.cs2kz_autoupdate.files_to_check[]' "$CONFIG_FILE")
 DISCORD_WEBHOOK=$(jq -r '.cs2kz_autoupdate.webhook_url' "$CONFIG_FILE")
 LOG_FILE=$(jq -r '.cs2kz_autoupdate.log_file' "$CONFIG_FILE")
+BUILD_LOG_FILE=$(jq -r '.cs2kz_autoupdate.build_log_file' "$CONFIG_FILE")
 
 if [ ! -f "$LOG_FILE" ]; then
-    touch "$LOG_FILE" || { log "Failed to create log file at \`$LOG_FILE\`"; exit 1; }
+    touch "$LOG_FILE" || { echo "Failed to create log file at \`$LOG_FILE\`"; exit 1; }
+fi
+
+if [ ! -f "$BUILD_LOG_FILE" ]; then
+    touch "$BUILD_LOG_FILE" || { echo "Failed to create build log file at \`$BUILD_LOG_FILE\`"; exit 1; }
 fi
 
 log() {
@@ -120,7 +125,7 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
         done
         
         log "Starting build process..."
-        bash -c "cd build && python3 ../configure.py && ambuild;"
+        bash -c "cd build && python3 ../configure.py && ambuild;" >> "$BUILD_LOG" 2>&1
         
         if [ $? -eq 0 ]; then
             log "Build completed successfully."

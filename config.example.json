@@ -10,6 +10,7 @@
       "/home/user1/serverfiles/game/csgo/addons/cs2kz:user1",
       "/home/user2/serverfiles/game/csgo/addons/cs2kz:user2"
     ],
-    "log_file": "/home/user/server-tools/cs2kz-autoupdate.log"
+    "log_file": "/home/user/server-tools/cs2kz-autoupdate.log",
+    "build_log_file": "/home/user/server-tools/cs2kz-autoupdate-build.log"
   }
 }
