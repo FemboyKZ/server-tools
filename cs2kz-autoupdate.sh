@@ -18,8 +18,12 @@ DISCORD_WEBHOOK=$(jq -r '.cs2kz_autoupdate.webhook_url' "$CONFIG_FILE")
 LOG_FILE=$(jq -r '.cs2kz_autoupdate.log_file' "$CONFIG_FILE")
 
 if [ ! -f "$LOG_FILE" ]; then
-    touch "$LOG_FILE" || { echo "Failed to create log file at \`$LOG_FILE\`"; exit 1; }
+    touch "$LOG_FILE" || { log "Failed to create log file at \`$LOG_FILE\`"; exit 1; }
 fi
+
+log() {
+    log "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
+}
 
 exec >> "$LOG_FILE" 2>&1
 
@@ -42,35 +46,37 @@ send_discord_notification_embed() {
     }" "$DISCORD_WEBHOOK"
 }
 
-cd "$REPO_DIR" || { echo "Repository not found at \`$REPO_DIR\`"; exit 1; }
+log "Starting Check for Upstream Changes..."
+
+cd "$REPO_DIR" || { log "Repository not found at \`$REPO_DIR\`"; exit 1; }
 
 if ! git remote -v | grep -q "upstream"; then
-  echo "Upstream repository not configured, attempting to set URL..."
+  log "Upstream repository not configured, attempting to set URL..."
     if ! git remote set-url upstream "$UPSTREAM_REPO"; then
-    echo "Error setting upstream repository URL, attempting to add..."
+    log "Error setting upstream repository URL, attempting to add..."
     if ! git remote add upstream "$UPSTREAM_REPO"; then
-      echo "Error adding upstream repository"
+      log "Error adding upstream repository"
       exit 1
     fi
   fi
 fi
 
 if ! git fetch upstream; then
-  echo "Error fetching from upstream repository."
+  log "Error fetching from upstream repository."
   exit 1
 fi
 
 NEW_COMMITS=$(git rev-list HEAD..upstream/$UPSTREAM_BRANCH --count)
 
 if [ "$NEW_COMMITS" -gt 0 ]; then
-    echo "Found $NEW_COMMITS new commit(s). Attempting to merge changes..."
+    log "Found $NEW_COMMITS new commit(s). Attempting to merge changes..."
     send_discord_notification_embed \
         "⚠️ New Upstream Changes" \
         "Found $NEW_COMMITS new commit(s) in upstream \`$UPSTREAM_BRANCH\`. Attempting to merge changes..." \
         "$BLUE"
 
     if ! git checkout "$LOCAL_BRANCH"; then
-        echo "Error Checking Out Branch"
+        log "Error Checking Out Branch"
         send_discord_notification_embed \
             "❌ Error Checking Out Branch" \
             "Error checking out branch \`$LOCAL_BRANCH\`" \
@@ -79,12 +85,12 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
     fi
     
     if ! git merge -m "Automated merge of upstream/$UPSTREAM_BRANCH" --no-ff --strategy=recursive --strategy-option=ours -S upstream/"$UPSTREAM_BRANCH"; then
-        echo "Error merging upstream changes"
+        log "Error merging upstream changes"
         exit 1
     fi
     
     if ! git push origin "$LOCAL_BRANCH"; then
-        echo "Error pushing changes"
+        log "Error pushing changes"
         send_discord_notification_embed \
             "❌ Error Pushing Changes" \
             "Error pushing changes to upstream \`$UPSTREAM_BRANCH\`" \
@@ -93,58 +99,58 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
     fi
 
     if [ $? -eq 0 ]; then
-        echo "Merge and push successful. Checking for specific file changes..."
+        log "Merge and push successful. Checking for specific file changes..."
         
         FILES_CHANGED=false
         for FILE in "${FILES_TO_CHECK[@]}"; do
             if git diff --name-only HEAD..upstream/"$UPSTREAM_BRANCH" | grep -q "$FILE"; then
                 FILES_CHANGED=true
-                echo "Detected changes to $FILE."
+                log "Detected changes to $FILE."
             fi
         done
         
-        echo "Starting build process..."
+        log "Starting build process..."
         bash -c "cd build && python3 ../configure.py && ambuild;"
         
         if [ $? -eq 0 ]; then
-            echo "Build completed successfully."
+            log "Build completed successfully."
             send_discord_notification_embed \
                 "✔️ Build Successful" \
                 "Build successful for branch \`$LOCAL_BRANCH\`. Uploading build results..." \
                 "$GREEN"
 
             if [ "$FILES_CHANGED" = false ]; then
-                echo "No changes detected in specified files. Copying build results to all destinations..."
+                log "No changes detected in specified files. Copying build results to all destinations..."
                 
                 for DEST_DIR in "${DEST_DIRS[@]}"; do
                     if [ ! -d "$DEST_DIR" ]; then
-                        echo "Destination directory \`$DEST_DIR\` does not exist. Skipping..."
+                        log "Destination directory \`$DEST_DIR\` does not exist. Skipping..."
                         continue
                     fi
                     
-                    echo "Copying build results to \`$DEST_DIR\`..."
+                    log "Copying build results to \`$DEST_DIR\`..."
                     for DEST_DIR in "${DEST_DIRS[@]}"; do
-                        USER=$(echo "$DEST_DIR" | cut -d: -f2)
-                        DIR=$(echo "$DEST_DIR" | cut -d: -f1)
+                        USER=$(log "$DEST_DIR" | cut -d: -f2)
+                        DIR=$(log "$DEST_DIR" | cut -d: -f1)
                         sudo rsync -a --delete --chown=$USER:$USER "$BUILD_RESULTS_DIR/" "$DIR/"
                     done
                     if [ $? -eq 0 ]; then
-                        echo "Build results successfully copied to all destinations."
+                        log "Build results successfully copied to all destinations."
                     else
-                        echo "Failed to copy build results to all destinations."
+                        log "Failed to copy build results to all destinations."
                     fi
                 done
                 
-                echo "All build results have been copied."
+                log "All build results have been copied."
             else
-                echo "Specified files have changed. Build results will not be copied."
+                log "Specified files have changed. Build results will not be copied."
                 send_discord_notification_embed \
                     "⚠️ Monitored Files Changed" \
                     "Monitored files were modified in the upstream changes. Build results were not copied." \
                     "$YELLOW"
             fi
         else
-            echo "Build failed!"
+            log "Build failed!"
             send_discord_notification_embed \
                 "❌ Build Failed" \
                 "The build for branch \`$LOCAL_BRANCH\` failed after merging upstream \`$UPSTREAM_BRANCH\`." \
@@ -152,7 +158,7 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
             exit 1
         fi
     else
-        echo "Merge failed. Please resolve conflicts manually."
+        log "Merge failed. Please resolve conflicts manually."
         send_discord_notification_embed \
             "❌ Merge Conflict" \
             "Merge failed for branch \`$LOCAL_BRANCH\` with upstream \`$UPSTREAM_BRANCH\`. Manual intervention required." \
@@ -160,9 +166,9 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
         exit 1
     fi
 else
-    echo "No new commits found. Repository is up-to-date."
+    log "No new commits found. Repository is up-to-date."
     exit 0
 fi
 
-echo "$(date) - $0 - $(cat /dev/stdout)" >> "$LOG_FILE"
+log "$(date) - $0 - $(cat /dev/stdout)" >> "$LOG_FILE"
 exit 0
