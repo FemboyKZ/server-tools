@@ -20,13 +20,19 @@ UPSTREAM_BRANCH=$(jq -r '.cs2kz_autoupdate.upstream_branch' "$CONFIG_FILE")
 UPSTREAM_REPO=$(jq -r '.cs2kz_autoupdate.upstream_repo' "$CONFIG_FILE")
 
 REPO_DIR=$(jq -r '.cs2kz_autoupdate.repo_dir' "$CONFIG_FILE")
-BUILD_RESULTS_DIR="${REPO_DIR}/build/package/addons/cs2kz/"
-DEST_DIRS=$(jq -r '.cs2kz_autoupdate.destination_dirs[]' "$CONFIG_FILE")
 
 FILES_TO_CHECK=$(jq -r '.cs2kz_autoupdate.files_to_check[]' "$CONFIG_FILE")
+
 DISCORD_WEBHOOK=$(jq -r '.cs2kz_autoupdate.webhook_url' "$CONFIG_FILE")
+ENABLE_LOGGING=$(jq -r '.cs2kz_autoupdate.enable_logging' "$CONFIG_FILE")
+ENABLE_LOGGING=${ENABLE_LOGGING,,}
 LOG_FILE=$(jq -r '.cs2kz_autoupdate.log_file' "$CONFIG_FILE")
 BUILD_LOG_FILE=$(jq -r '.cs2kz_autoupdate.build_log_file' "$CONFIG_FILE")
+
+UPLOAD_RESULTS=$(jq -r '.cs2kz_autoupdate.upload_results' "$CONFIG_FILE")
+UPLOAD_RESULTS=${UPLOAD_RESULTS,,}
+
+OUTPUT_FILE="server-status-temp.json"
 
 if [ ! -f "$LOG_FILE" ]; then
     touch "$LOG_FILE" || { echo "Failed to create log file at \`$LOG_FILE\`"; exit 1; }
@@ -37,10 +43,14 @@ if [ ! -f "$BUILD_LOG_FILE" ]; then
 fi
 
 log() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
+    if [ "$ENABLE_LOGGING" = true ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$BUILD_LOG_FILE"
+    fi
 }
 
-exec > >(while read -r line; do log "$line"; done) 2>&1
+if [ "$ENABLE_LOGGING" = true ]; then
+    exec > >(while read -r line; do log "$line"; done) 2>&1
+fi
 
 RED=16711680
 YELLOW=16776960
@@ -63,7 +73,47 @@ send_discord_notification_embed() {
         }]
     }"
 
-    curl -H "Content-Type: application/json" -X POST -d "$payload" "$DISCORD_WEBHOOK"
+    if [ "$ENABLE_LOGGING" = true ] && [ -n "$DISCORD_WEBHOOK" ] && [ "$DISCORD_WEBHOOK" != "null" ]; then
+    response=$(curl -s -o /dev/null -w "%{http_code}" -H "Content-Type: application/json" -X POST -d "$payload" "$DISCORD_WEBHOOK")
+        if [ "$response" -eq 200 ]; then
+            log "Successfully posted log to Discord."
+        else
+            log "Failed to post log to Discord. HTTP response code: $response" >&2
+        fi
+    fi
+}
+
+
+query_server() {
+    local server="$1"
+
+    QSTAT_OUTPUT=$(qstat -a2s "$server")
+
+    if [[ -z "$QSTAT_OUTPUT" || "$QSTAT_OUTPUT" =~ -- ]]; then
+        jq -n \
+            --arg server "$server" \
+            --arg status "OFFLINE" \
+            '{"server": $server, "status": $status}' >> "$OUTPUT_FILE"
+        echo "," >> "$OUTPUT_FILE"
+        return
+    fi
+
+    SERVER_INFO=$(echo "$QSTAT_OUTPUT" | tail -n 1)
+    PLAYERS=$(echo "$SERVER_INFO" | awk '{print $2}')
+
+    CURRENT_PLAYERS=$(echo "$PLAYERS" | cut -d'/' -f1)
+
+    if [[ "$CURRENT_PLAYERS" -eq 0 ]]; then
+        STATUS="EMPTY"
+    else
+        STATUS="ACTIVE"
+    fi
+
+    jq -n \
+        --arg server "$server" \
+        --arg status "$STATUS" \
+        '{"server": $server, "status": $status}' >> "$OUTPUT_FILE"
+    echo "," >> "$OUTPUT_FILE"
 }
 
 log "Starting Check for Upstream Changes..."
@@ -133,43 +183,54 @@ if [ "$NEW_COMMITS" -gt 0 ]; then
         done
         
         log "Starting build process..."
-        bash -c "cd build && python3 ../configure.py && ambuild;" >> "$BUILD_LOG" 2>&1
+        if [ "$ENABLE_LOGGING" = true ]; then
+            bash -c "cd build && python3 ../configure.py && ambuild;" >> "$BUILD_LOG" 2>&1
+        else
+            bash -c "cd build && python3 ../configure.py && ambuild;"
+        fi
         
         if [ $? -eq 0 ]; then
             log "Build completed successfully."
             send_discord_notification_embed \
                 "✔️ Build Successful" \
-                "Build successful for branch \`$LOCAL_BRANCH\`. Uploading build results..." \
+                "Build successful for branch \`$LOCAL_BRANCH\`. Free to upload build results." \
                 "$GREEN"
 
             if [ "$FILES_CHANGED" = false ]; then
-                log "No changes detected in specified files. Copying build results to all destinations..."
-                
-                for DEST_DIR in "${DEST_DIRS[@]}"; do
-                    if [ ! -d "$DEST_DIR" ]; then
-                        log "Destination directory \`$DEST_DIR\` does not exist. Skipping..."
-                        continue
-                    fi
-                    
-                    log "Copying build results to \`$DEST_DIR\`..."
-                    for DEST_DIR in "${DEST_DIRS[@]}"; do
-                        USER=$(log "$DEST_DIR" | cut -d: -f2)
-                        DIR=$(log "$DEST_DIR" | cut -d: -f1)
-                        sudo rsync -a --delete --chown=$USER:$USER "$BUILD_RESULTS_DIR/" "$DIR/"
+                log "No changes detected in specified files. Free to upload build results."
+                send_discord_notification_embed \
+                    "🔄 No Changes Detected" \
+                    "No changes detected in specified files. Free to upload build results." \
+                    "$BLUE"
+
+                if [ "$ENABLE_UPLOAD" = true ]; then
+                    log "Uploads enabled. Uploading build results..."
+                    jq -c '.cs2kz_autoupdate.servers_to_update[]' "$CONFIG_FILE" | while read -r server; do
+                        folder=$(echo "$server" | jq -r '.folder')
+                        user=$(echo "$server" | jq -r '.user')
+                        address=$(echo "$server" | jq -r '.address')
+
+                        if [ ! -f "$OUTPUT_FILE" ]; then
+                            touch "$OUTPUT_FILE" || { echo "Failed to create output file at \`$OUTPUT_FILE\`"; exit 1; }
+                        fi
+
+                        echo "[" > "$OUTPUT_FILE"
+
+                        for server in "${servers_to_update[@]}"; do
+                            log "Updating server: $server"
+                            query_server "$address"
+                        done
+                        sed -i '$ s/,$//' "$OUTPUT_FILE"
+                        echo "]" >> "$OUTPUT_FILE"
                     done
-                    if [ $? -eq 0 ]; then
-                        log "Build results successfully copied to all destinations."
-                    else
-                        log "Failed to copy build results to all destinations."
-                    fi
-                done
-                
-                log "All build results have been copied."
+                else
+                    log "Uploads disabled. Skipping upload."
+                fi
             else
                 log "Specified files have changed. Build results will not be copied."
                 send_discord_notification_embed \
                     "⚠️ Monitored Files Changed" \
-                    "Monitored files were modified in the upstream changes. Build results were not copied." \
+                    "Monitored files were modified in the upstream changes. Build results should be manually checked." \
                     "$YELLOW"
             fi
         else

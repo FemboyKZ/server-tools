@@ -6,11 +6,21 @@
     "upstream_branch": "dev",
     "local_branch": "dev",
     "files_to_check": ["cs2kz-server-config.txt", "cs2kz.cfg"],
-    "destination_dirs": [
-      "/home/user1/serverfiles/game/csgo/addons/cs2kz:user1",
-      "/home/user2/serverfiles/game/csgo/addons/cs2kz:user2"
-    ],
+    "enable_logging": true,
     "log_file": "/home/user/server-tools/cs2kz-autoupdate.log",
-    "build_log_file": "/home/user/server-tools/cs2kz-autoupdate-build.log"
+    "build_log_file": "/home/user/server-tools/cs2kz-autoupdate-build.log",
+    "servers_to_update": [
+      {
+        "folder": "/home/user1/serverfiles/game/csgo/addons/cs2kz",
+        "user": "user1",
+        "address": "192.168.1.1:27015"
+      },
+      {
+        "folder": "/home/user2/serverfiles/game/csgo/addons/cs2kz",
+        "user": "user2",
+        "address": "192.168.1.2:27015"
+      }
+    ],
+    "upload_results": false
   }
 }
