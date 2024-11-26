@@ -93,6 +93,19 @@ if [ -z "$UPDATED_SERVERS" ]; then
     echo "[]" > "$UPDATED_SERVERS"
 fi
 
+run_lftp_mirror() {
+    local address="$1"
+    local folder="$2"
+    local user="$3"
+    local password="$4"
+    local remote_folder="$5"
+
+    lftp -u "$user","$password" "$address" <<EOF
+mirror -R "$folder" "$remote_folder"
+bye
+EOF
+}
+
 query_server() {
     local address="$1"
     local folder="$2"
@@ -143,7 +156,7 @@ query_server() {
                     log "rsync encountered an error"
                 fi
             elif [[ "$type" == "remote_key" ]]; then
-                log "Uploading to remote server: $address"
+                log "Uploading to remote server via ssh, authorizing with ssh key: $address"
                 rsync -avz -e "ssh -i $ssh_key -p $ssh_port" "$UPLOAD_FOLDER" "$user@$ssh_address:$folder"
                 ssh -i "$ssh_key" -p "$ssh_port" "$user@$ssh_address" "chown -R $user:$user $folder"
                 if [ $? -eq 0 ]; then
@@ -152,13 +165,29 @@ query_server() {
                     log "rsync encountered an error"
                 fi
             elif [[ "$type" == "remote_pass" ]]; then
-                log "Uploading to remote server with password: $address"
+                log "Uploading to remote server via ssh, authorizing with password: $address"
+                if ! command -v sshpass &> /dev/null; then
+                    log "sshpass could not be found, please install it."
+                    return 1
+                fi
                 sshpass -p "$ssh_pass" rsync -avz -e "ssh -p $ssh_port" "$UPLOAD_FOLDER" "$user@$ssh_address:$folder"
                 sshpass -p "$ssh_pass" ssh -p "$ssh_port" "$user@$ssh_address" "chown -R $user:$user $folder"
                 if [ $? -eq 0 ]; then
                     log "rsync completed successfully"
                 else
                     log "rsync encountered an error"
+                fi
+            elif [[ "$type" == "remote_ftp" ]]; then
+                log "Uploading to FTP server: $address"
+                if ! command -v lftp &> /dev/null; then
+                    log "lftp could not be found, please install it."
+                    return 1
+                fi
+                run_lftp_mirror "$ssh_address" "$UPLOAD_FOLDER" "$user" "$ssh_pass" "$folder"
+                if [ $? -eq 0 ]; then
+                    log "lftp mirror completed successfully"
+                else
+                    log "lftp mirror encountered an error"
                 fi
             fi
         fi

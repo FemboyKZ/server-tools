@@ -34,6 +34,15 @@
         "ssh_port": "22",
         "ssh_address": "192.168.1.2",
         "ssh_pass": "your_ssh_password"
+      },
+      {
+        "folder": "/addons/cs2kz/",
+        "user": "remoteuser3",
+        "address": "192.168.1.2:27015",
+        "type": "remote_ftp",
+        "ssh_port": "21",
+        "ssh_address": "192.168.1.2",
+        "ssh_pass": "your_ssh_password"
       }
     ],
     "enable_builds": true,
