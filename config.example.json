@@ -9,6 +9,7 @@
     "enable_logging": true,
     "log_file": "/home/user/server-tools/cs2kz-autoupdate.log",
     "build_log_file": "/home/user/server-tools/cs2kz-autoupdate-build.log",
+    "update_check_interval": 60,
     "servers_to_update": [
       {
         "folder": "/home/localuser/serverfiles/game/csgo/addons/cs2kz/",

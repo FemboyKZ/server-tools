@@ -1,20 +1,5 @@
 #!/bin/bash
 
-if ! command -v jq &> /dev/null; then
-    echo "jq could not be found, please install it."
-    exit 1
-fi
-
-CONFIG_FILE=config.json
-if [ ! -f "$CONFIG_FILE" ]; then
-    CONFIG_FILE=config.example.json
-fi
-
-if [ ! -f "$CONFIG_FILE" ]; then
-    echo "Configuration file not found!"
-    exit 1
-fi
-
 LOCAL_BRANCH=$(jq -r '.cs2kz_autoupdate.local_branch' "$CONFIG_FILE")
 UPSTREAM_BRANCH=$(jq -r '.cs2kz_autoupdate.upstream_branch' "$CONFIG_FILE")
 UPSTREAM_REPO=$(jq -r '.cs2kz_autoupdate.upstream_repo' "$CONFIG_FILE")
@@ -37,15 +22,7 @@ ENABLE_BUILDS=$(jq -r '.cs2kz_autoupdate.enable_builds' "$CONFIG_FILE")
 ENABLE_BUILDS=${ENABLE_BUILDS,,}
 OUTPUT_FILE="server-status-temp.json"
 UPDATED_SERVERS="updated-servers-temp.json"
-CHECK_INTERVAL=300
-
-if [ ! -f "$LOG_FILE" ]; then
-    touch "$LOG_FILE" || { echo "Failed to create log file at \`$LOG_FILE\`"; exit 1; }
-fi
-
-if [ ! -f "$BUILD_LOG_FILE" ]; then
-    touch "$BUILD_LOG_FILE" || { echo "Failed to create build log file at \`$BUILD_LOG_FILE\`"; exit 1; }
-fi
+CHECK_INTERVAL=$(jq -r '.cs2kz_autoupdate.update_check_interval' "$CONFIG_FILE")
 
 log() {
     if [ "$ENABLE_LOGGING" = true ]; then
@@ -53,9 +30,30 @@ log() {
     fi
 }
 
-if [ "$ENABLE_LOGGING" = true ]; then
-    exec > >(while read -r line; do log "$line"; done) 2>&1
+if ! command -v jq &> /dev/null; then
+    log "jq could not be found, please install it."
+    exit 1
 fi
+
+CONFIG_FILE=config.json
+if [ ! -f "$CONFIG_FILE" ]; then
+    CONFIG_FILE=config.example.json
+fi
+
+if [ ! -f "$CONFIG_FILE" ]; then
+    log "Configuration file not found!"
+    exit 1
+fi
+
+if [ ! -f "$LOG_FILE" ]; then
+    touch "$LOG_FILE" || { log "Failed to create log file at \`$LOG_FILE\`"; exit 1; }
+fi
+
+if [ ! -f "$BUILD_LOG_FILE" ]; then
+    touch "$BUILD_LOG_FILE" || { log "Failed to create build log file at \`$BUILD_LOG_FILE\`"; exit 1; }
+fi
+
+exec > >(while read -r line; do log "$line"; done) 2>&1
 
 RED=16711680
 YELLOW=16776960
@@ -105,7 +103,7 @@ query_server() {
     server_status=$(echo "$PYTHON_OUTPUT" | jq -r '.status')
 
     if [[ "$server_status" == "OFFLINE" ]]; then
-        echo "Server $address is OFFLINE"
+        log "Server $address is OFFLINE"
         jq -n \
             --arg server "$address" \
             --arg status "OFFLINE" \
@@ -122,19 +120,29 @@ query_server() {
 
         if [[ "$AUTO_UPDATE" == "true" ]]; then
             if [[ "$type" == "local" ]]; then
-                echo "Uploading to local server: $address"
-                sudo rsync -a --delete --chown="$user:$user" "$UPLOAD_FOLDER" "$folder"
+                log "Uploading to local server: $address"
+                sudo rsync -avz --delete --chown="$user:$user" "$UPLOAD_FOLDER" "$folder"
+                if [ $? -eq 0 ]; then
+                    log "rsync completed successfully"
+                else
+                    log "rsync encountered an error"
+                fi
             elif [[ "$type" == "external" ]]; then
-                echo "Uploading to external server: $address"
+                log "Uploading to external server: $address"
                 sudo rsync -avz -e "ssh -i $ssh_key -p $ssh_port" "$UPLOAD_FOLDER" "$user@$address:$folder"
                 sudo ssh -i "$ssh_key" -p "$ssh_port" "$user@$address" "chown -R $user:$user $folder"
+                if [ $? -eq 0 ]; then
+                    log "rsync completed successfully"
+                else
+                    log "rsync encountered an error"
+                fi
             fi
         fi
 
         jq --arg server "$address" '. + [$server]' "$UPDATED_SERVERS" > "$UPDATED_SERVERS.tmp" && mv "$UPDATED_SERVERS.tmp" "$UPDATED_SERVERS"
 
     elif [[ "$server_status" == "ACTIVE" ]]; then
-        echo "Server $address is ACTIVE"
+        log "Server $address is ACTIVE"
         jq -n \
             --arg server "$address" \
             --arg status "ACTIVE" \
@@ -142,7 +150,7 @@ query_server() {
         echo "," >> "$OUTPUT_FILE"
         return 2
     else
-        echo "Error: Unable to determine server status for $address"
+        log "Error: Unable to determine server status for $address"
         return 3
     fi
 }
@@ -163,7 +171,7 @@ monitor_servers() {
             ssh_port=$(echo "$server" | jq -r '.ssh_port // "22"')
 
             if jq -e --arg server "$address" '. | index($server)' "$UPDATED_SERVERS" > /dev/null; then
-                echo "Server $address already updated. Skipping."
+                log "Server $address already updated. Skipping."
                 continue
             fi
 
