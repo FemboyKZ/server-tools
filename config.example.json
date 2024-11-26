@@ -10,6 +10,8 @@
     "log_file": "/home/user/server-tools/cs2kz-autoupdate.log",
     "build_log_file": "/home/user/server-tools/cs2kz-autoupdate-build.log",
     "update_check_interval": 300,
+    "enable_builds": true,
+    "auto_update": false,
     "servers_to_update": [
       {
         "folder": "/home/localuser/serverfiles/game/csgo/addons/cs2kz/",
@@ -44,8 +46,6 @@
         "ssh_address": "192.168.1.2",
         "ssh_pass": "your_ssh_password"
       }
-    ],
-    "enable_builds": true,
-    "auto_update": false
+    ]
   }
 }
