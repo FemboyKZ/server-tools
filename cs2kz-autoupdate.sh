@@ -86,7 +86,9 @@ send_discord_notification_embed() {
     fi
 }
 
-echo "[]" > "$UPDATED_SERVERS"
+if [ -z "$UPDATED_SERVERS" ]; then
+    echo "[]" > "$UPDATED_SERVERS"
+fi
 
 query_server() {
     local address="$1"
