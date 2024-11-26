@@ -29,6 +29,14 @@ OUTPUT_FILE="server-status-temp.json"
 UPDATED_SERVERS="updated-servers-temp.json"
 CHECK_INTERVAL=$(jq -r '.cs2kz_autoupdate.update_check_interval' "$CONFIG_FILE")
 
+ALL_SERVERS_UPDATED=false
+UPDATE_TRIGGERED=false
+
+RED=16711680
+YELLOW=16776960
+GREEN=65280
+BLUE=255
+
 log() {
     if [ "$ENABLE_LOGGING" = true ]; then
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
@@ -54,11 +62,6 @@ if [ ! -f "$BUILD_LOG_FILE" ]; then
 fi
 
 exec > >(while read -r line; do log "$line"; done) 2>&1
-
-RED=16711680
-YELLOW=16776960
-GREEN=65280
-BLUE=255
 
 send_discord_notification_embed() {
     local title="$1"
@@ -161,6 +164,10 @@ monitor_servers() {
     local servers=($(jq -c '.cs2kz_autoupdate.servers_to_update[]' "$CONFIG_FILE"))
 
     while true; do
+        if [ "$ALL_SERVERS_UPDATED" = true ]; then
+            log "All servers have been updated. Stopping server monitoring."
+            break
+        fi
 
         echo "[" > "$OUTPUT_FILE"
 
@@ -183,99 +190,109 @@ monitor_servers() {
         sed -i '$ s/,$//' "$OUTPUT_FILE"
         echo "]" >> "$OUTPUT_FILE"
 
+        if [ "$(jq length "$UPDATED_SERVERS")" -eq "${#servers[@]}" ]; then
+            ALL_SERVERS_UPDATED=true
+            UPDATE_TRIGGERED=false
+        fi
+
         log "Waiting $CHECK_INTERVAL seconds before rechecking..."
         sleep "$CHECK_INTERVAL"
     done
 }
 
-log "Monitoring servers every $CHECK_INTERVAL seconds..."
-monitor_servers
-
 check_for_new_commits() {
-    cd "$REPO_DIR" || { 
-        log "Repository not found at \`$REPO_DIR\`"; 
-        exit 1; 
-    }
+    while true; do
+        if [ "$UPDATE_TRIGGERED" = true ]; then
+            log "Update triggered. Pausing check for new commits until all servers are updated."
+            sleep "$CHECK_INTERVAL"
+            continue
+        fi
 
-    if ! git remote -v | grep -q "upstream"; then
-        log "Upstream repository not configured, attempting to set URL..."
-        if ! git remote set-url upstream "$UPSTREAM_REPO"; then
-            log "Error setting upstream repository URL, attempting to add..."
-            if ! git remote add upstream "$UPSTREAM_REPO"; then
-                log "Error adding upstream repository."
+        cd "$REPO_DIR" || { 
+            log "Repository not found at \`$REPO_DIR\`"
+            exit 1
+        }
+
+        if ! git remote -v | grep -q "upstream"; then
+            log "Upstream repository not configured, attempting to set URL..."
+            if ! git remote set-url upstream "$UPSTREAM_REPO"; then
+                log "Error setting upstream repository URL, attempting to add..."
+                if ! git remote add upstream "$UPSTREAM_REPO"; then
+                    log "Error adding upstream repository."
+                    exit 1
+                fi
+            fi
+        fi
+
+        if ! git fetch upstream; then
+            log "Error fetching from upstream repository."
+            exit 1
+        fi
+
+        new_commits=$(git rev-list HEAD..upstream/"$UPSTREAM_BRANCH" --count)
+
+        if [ "$new_commits" -gt 0 ]; then
+            log "Found $new_commits new commit(s). Attempting to merge changes..."
+            send_discord_notification_embed \
+                "⚠️ New Upstream Changes" \
+                "Found $new_commits new commit(s) in upstream \`$UPSTREAM_BRANCH\`. Attempting to merge changes..." \
+                "$BLUE"
+
+            if ! git checkout "$LOCAL_BRANCH"; then
+                log "Error checking out branch."
+                send_discord_notification_embed \
+                    "❌ Error Checking Out Branch" \
+                    "Error checking out branch \`$LOCAL_BRANCH\`" \
+                    "$RED"
                 exit 1
             fi
-        fi
-    fi
 
-    if ! git fetch upstream; then
-        log "Error fetching from upstream repository."
-        exit 1
-    fi
-
-    new_commits=$(git rev-list HEAD..upstream/"$UPSTREAM_BRANCH" --count)
-
-    if [ "$new_commits" -gt 0 ]; then
-        log "Found $new_commits new commit(s). Attempting to merge changes..."
-        send_discord_notification_embed \
-            "⚠️ New Upstream Changes" \
-            "Found $new_commits new commit(s) in upstream \`$UPSTREAM_BRANCH\`. Attempting to merge changes..." \
-            "$BLUE"
-
-        if ! git checkout "$LOCAL_BRANCH"; then
-            log "Error checking out branch."
-            send_discord_notification_embed \
-                "❌ Error Checking Out Branch" \
-                "Error checking out branch \`$LOCAL_BRANCH\`" \
-                "$RED"
-            exit 1
-        fi
-
-        if ! git merge -m "Automated merge of upstream/$UPSTREAM_BRANCH" \
-                --no-ff --strategy=recursive --strategy-option=ours -S \
-                upstream/"$UPSTREAM_BRANCH"; then
-            log "Error merging upstream changes."
-            send_discord_notification_embed \
-                "❌ Merge Conflict" \
-                "Merge failed for branch \`$LOCAL_BRANCH\` with upstream \`$UPSTREAM_BRANCH\`. Manual intervention required." \
-                "$RED"
-            exit 1
-        fi
-
-        if ! git push origin "$LOCAL_BRANCH"; then
-            log "Error pushing changes."
-            send_discord_notification_embed \
-                "❌ Error Pushing Changes" \
-                "Error pushing changes to upstream \`$UPSTREAM_BRANCH\`" \
-                "$RED"
-            exit 1
-        fi
-
-        log "Merge and push successful. Checking for specific file changes..."
-        FILES_CHANGED=false
-        CHANGED_FILES=$(git diff --name-only HEAD..upstream/"$UPSTREAM_BRANCH")
-        for FILE in "${FILES_TO_CHECK[@]}"; do
-            log "Checking for changes in file: $FILE"
-            if echo "$CHANGED_FILES" | grep -q "$FILE"; then
-                FILES_CHANGED=true
-                log "Detected changes to $FILE."
+            if ! git merge -m "Automated merge of upstream/$UPSTREAM_BRANCH" \
+                    --no-ff --strategy=recursive --strategy-option=ours -S \
+                    upstream/"$UPSTREAM_BRANCH"; then
+                log "Error merging upstream changes."
+                send_discord_notification_embed \
+                    "❌ Merge Conflict" \
+                    "Merge failed for branch \`$LOCAL_BRANCH\` with upstream \`$UPSTREAM_BRANCH\`. Manual intervention required." \
+                    "$RED"
+                exit 1
             fi
-        done
 
-        if [ "$FILES_CHANGED" = true ]; then
-            log "Specified files have changed. Further actions may be needed."
+            if ! git push origin "$LOCAL_BRANCH"; then
+                log "Error pushing changes."
+                send_discord_notification_embed \
+                    "❌ Error Pushing Changes" \
+                    "Error pushing changes to upstream \`$UPSTREAM_BRANCH\`" \
+                    "$RED"
+                exit 1
+            fi
+
+            log "Merge and push successful. Checking for specific file changes..."
+            FILES_CHANGED=false
+            CHANGED_FILES=$(git diff --name-only HEAD..upstream/"$UPSTREAM_BRANCH")
+            for FILE in "${FILES_TO_CHECK[@]}"; do
+                log "Checking for changes in file: $FILE"
+                if echo "$CHANGED_FILES" | grep -q "$FILE"; then
+                    FILES_CHANGED=true
+                    log "Detected changes to $FILE."
+                fi
+            done
+
+            if [ "$FILES_CHANGED" = true ]; then
+                log "Specified files have changed. Further actions may be needed."
+            else
+                log "No changes detected in monitored files."
+                log "Starting Build..."
+                build_project
+                UPDATE_TRIGGERED=true
+            fi
         else
-            log "No changes detected in monitored files."
-            log "Starting Build..."
-            build_project
+            log "No new commits found. Repository is up-to-date."
         fi
-    else
-        log "No new commits found. Repository is up-to-date."
-    fi
-}
 
-log "Starting Check for Upstream Changes..."
-check_for_new_commits
+        sleep "$CHECK_INTERVAL"
+    done
+}
 
 build_project() {
     cd "$REPO_DIR" || {
@@ -308,6 +325,7 @@ build_project() {
             "$GREEN"
         log "resetting updated server list..."
         echo "[]" > "$UPDATED_SERVERS"
+        ALL_SERVERS_UPDATED=false
     else
         log "Build failed."
         send_discord_notification_embed \
@@ -316,3 +334,8 @@ build_project() {
             "$RED"
     fi
 }   
+
+log "Starting Check for Upstream Changes... Checking every $CHECK_INTERVAL seconds..."
+check_for_new_commits
+log "Monitoring servers every $CHECK_INTERVAL seconds..."
+monitor_servers
