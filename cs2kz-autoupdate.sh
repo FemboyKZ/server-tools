@@ -98,14 +98,24 @@ query_server() {
     local folder="$2"
     local user="$3"
     local type="$4"
-    local ssh_key="$5"
-    local ssh_port="$6"
+    local ssh_key="${5:-}" 
+    local ssh_port="${6:-22}"
+    local ssh_address="${7:-$address}"
+    local ssh_pass="${8:-}" 
 
     echo "Checking server: $address"
 
     PYTHON_OUTPUT=$(python3 query_server.py "${address%:*}" "${address##*:}")
+    if [ $? -ne 0 ]; then
+        log "Failed to query server $address"
+        return 1
+    fi
 
     server_status=$(echo "$PYTHON_OUTPUT" | jq -r '.status')
+    if [ $? -ne 0 ]; then
+        log "Failed to parse JSON response for server $address"
+        return 1
+    fi
 
     if [[ "$server_status" == "OFFLINE" ]]; then
         log "Server $address is OFFLINE"
@@ -132,10 +142,19 @@ query_server() {
                 else
                     log "rsync encountered an error"
                 fi
-            elif [[ "$type" == "external" ]]; then
+            elif [[ "$type" == "external_key" ]]; then
                 log "Uploading to external server: $address"
-                sudo rsync -avz -e "ssh -i $ssh_key -p $ssh_port" "$UPLOAD_FOLDER" "$user@$address:$folder"
-                sudo ssh -i "$ssh_key" -p "$ssh_port" "$user@$address" "chown -R $user:$user $folder"
+                rsync -avz -e "ssh -i $ssh_key -p $ssh_port" "$UPLOAD_FOLDER" "$user@$ssh_address:$folder"
+                ssh -i "$ssh_key" -p "$ssh_port" "$user@$ssh_address" "chown -R $user:$user $folder"
+                if [ $? -eq 0 ]; then
+                    log "rsync completed successfully"
+                else
+                    log "rsync encountered an error"
+                fi
+            elif [[ "$type" == "external_pass" ]]; then
+                log "Uploading to external server with password: $address"
+                sshpass -p "$ssh_pass" rsync -avz -e "ssh -p $ssh_port" "$UPLOAD_FOLDER" "$user@$ssh_address:$folder"
+                sshpass -p "$ssh_pass" ssh -p "$ssh_port" "$user@$ssh_address" "chown -R $user:$user $folder"
                 if [ $? -eq 0 ]; then
                     log "rsync completed successfully"
                 else
