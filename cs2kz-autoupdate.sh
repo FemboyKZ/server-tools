@@ -20,6 +20,7 @@ UPSTREAM_BRANCH=$(jq -r '.cs2kz_autoupdate.upstream_branch' "$CONFIG_FILE")
 UPSTREAM_REPO=$(jq -r '.cs2kz_autoupdate.upstream_repo' "$CONFIG_FILE")
 
 REPO_DIR=$(jq -r '.cs2kz_autoupdate.repo_dir' "$CONFIG_FILE")
+UPLOAD_FOLDER="$REPO_DIR/build/package/addons/cs2kz/"
 
 FILES_TO_CHECK=$(jq -r '.cs2kz_autoupdate.files_to_check[]' "$CONFIG_FILE")
 
@@ -29,10 +30,14 @@ ENABLE_LOGGING=${ENABLE_LOGGING,,}
 LOG_FILE=$(jq -r '.cs2kz_autoupdate.log_file' "$CONFIG_FILE")
 BUILD_LOG_FILE=$(jq -r '.cs2kz_autoupdate.build_log_file' "$CONFIG_FILE")
 
-UPLOAD_RESULTS=$(jq -r '.cs2kz_autoupdate.upload_results' "$CONFIG_FILE")
-UPLOAD_RESULTS=${UPLOAD_RESULTS,,}
+AUTO_UPDATE=$(jq -r '.cs2kz_autoupdate.auto_update' "$CONFIG_FILE")
+AUTO_UPDATE=${AUTO_UPDATE,,}
 
+ENABLE_BUILDS=$(jq -r '.cs2kz_autoupdate.enable_builds' "$CONFIG_FILE")
+ENABLE_BUILDS=${ENABLE_BUILDS,,}
 OUTPUT_FILE="server-status-temp.json"
+UPDATED_SERVERS="updated-servers-temp.json"
+CHECK_INTERVAL=300
 
 if [ ! -f "$LOG_FILE" ]; then
     touch "$LOG_FILE" || { echo "Failed to create log file at \`$LOG_FILE\`"; exit 1; }
@@ -44,7 +49,7 @@ fi
 
 log() {
     if [ "$ENABLE_LOGGING" = true ]; then
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$BUILD_LOG_FILE"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
     fi
 }
 
@@ -73,7 +78,7 @@ send_discord_notification_embed() {
         }]
     }"
 
-    if [ "$ENABLE_LOGGING" = true ] && [ -n "$DISCORD_WEBHOOK" ] && [ "$DISCORD_WEBHOOK" != "null" ]; then
+    if [ -n "$DISCORD_WEBHOOK" ] && [ "$DISCORD_WEBHOOK" != "null" ]; then
     response=$(curl -s -o /dev/null -w "%{http_code}" -H "Content-Type: application/json" -X POST -d "$payload" "$DISCORD_WEBHOOK")
         if [ "$response" -eq 200 ]; then
             log "Successfully posted log to Discord."
@@ -83,175 +88,221 @@ send_discord_notification_embed() {
     fi
 }
 
+echo "[]" > "$UPDATED_SERVERS"
 
 query_server() {
-    local server="$1"
+    local address="$1"
+    local folder="$2"
+    local user="$3"
+    local type="$4"
+    local ssh_key="$5"
+    local ssh_port="$6"
 
-    QSTAT_OUTPUT=$(qstat -a2s "$server")
+    echo "Checking server: $address"
 
-    if [[ -z "$QSTAT_OUTPUT" || "$QSTAT_OUTPUT" =~ -- ]]; then
+    PYTHON_OUTPUT=$(python3 query_server.py "${address%:*}" "${address##*:}")
+
+    server_status=$(echo "$PYTHON_OUTPUT" | jq -r '.status')
+
+    if [[ "$server_status" == "OFFLINE" ]]; then
+        echo "Server $address is OFFLINE"
         jq -n \
-            --arg server "$server" \
+            --arg server "$address" \
             --arg status "OFFLINE" \
             '{"server": $server, "status": $status}' >> "$OUTPUT_FILE"
         echo "," >> "$OUTPUT_FILE"
-        return
-    fi
+        return 1
+    elif [[ "$server_status" == "EMPTY" ]]; then
+        log "Server $address is EMPTY"
+        jq -n \
+            --arg server "$address" \
+            --arg status "EMPTY" \
+            '{"server": $server, "status": $status}' >> "$OUTPUT_FILE"
+        echo "," >> "$OUTPUT_FILE"
 
-    SERVER_INFO=$(echo "$QSTAT_OUTPUT" | tail -n 1)
-    PLAYERS=$(echo "$SERVER_INFO" | awk '{print $2}')
+        if [[ "$AUTO_UPDATE" == "true" ]]; then
+            if [[ "$type" == "local" ]]; then
+                echo "Uploading to local server: $address"
+                sudo rsync -a --delete --chown="$user:$user" "$UPLOAD_FOLDER" "$folder"
+            elif [[ "$type" == "external" ]]; then
+                echo "Uploading to external server: $address"
+                sudo rsync -avz -e "ssh -i $ssh_key -p $ssh_port" "$UPLOAD_FOLDER" "$user@$address:$folder"
+                sudo ssh -i "$ssh_key" -p "$ssh_port" "$user@$address" "chown -R $user:$user $folder"
+            fi
+        fi
 
-    CURRENT_PLAYERS=$(echo "$PLAYERS" | cut -d'/' -f1)
+        jq --arg server "$address" '. + [$server]' "$UPDATED_SERVERS" > "$UPDATED_SERVERS.tmp" && mv "$UPDATED_SERVERS.tmp" "$UPDATED_SERVERS"
 
-    if [[ "$CURRENT_PLAYERS" -eq 0 ]]; then
-        STATUS="EMPTY"
+    elif [[ "$server_status" == "ACTIVE" ]]; then
+        echo "Server $address is ACTIVE"
+        jq -n \
+            --arg server "$address" \
+            --arg status "ACTIVE" \
+            '{"server": $server, "status": $status}' >> "$OUTPUT_FILE"
+        echo "," >> "$OUTPUT_FILE"
+        return 2
     else
-        STATUS="ACTIVE"
+        echo "Error: Unable to determine server status for $address"
+        return 3
     fi
-
-    jq -n \
-        --arg server "$server" \
-        --arg status "$STATUS" \
-        '{"server": $server, "status": $status}' >> "$OUTPUT_FILE"
-    echo "," >> "$OUTPUT_FILE"
 }
 
-log "Starting Check for Upstream Changes..."
+monitor_servers() {
+    local servers=($(jq -c '.cs2kz_autoupdate.servers_to_update[]' "$CONFIG_FILE"))
 
-cd "$REPO_DIR" || { log "Repository not found at \`$REPO_DIR\`"; exit 1; }
+    while true; do
 
-if ! git remote -v | grep -q "upstream"; then
-  log "Upstream repository not configured, attempting to set URL..."
-    if ! git remote set-url upstream "$UPSTREAM_REPO"; then
-    log "Error setting upstream repository URL, attempting to add..."
-    if ! git remote add upstream "$UPSTREAM_REPO"; then
-      log "Error adding upstream repository"
-      exit 1
+        echo "[" > "$OUTPUT_FILE"
+
+        for server in "${servers[@]}"; do
+            address=$(echo "$server" | jq -r '.address')
+            folder=$(echo "$server" | jq -r '.folder')
+            user=$(echo "$server" | jq -r '.user')
+            type=$(echo "$server" | jq -r '.type')
+            ssh_key=$(echo "$server" | jq -r '.ssh_key // empty')
+            ssh_port=$(echo "$server" | jq -r '.ssh_port // "22"')
+
+            if jq -e --arg server "$address" '. | index($server)' "$UPDATED_SERVERS" > /dev/null; then
+                echo "Server $address already updated. Skipping."
+                continue
+            fi
+
+            query_server "$address" "$folder" "$user" "$type" "$ssh_key" "$ssh_port"
+        done
+
+        sed -i '$ s/,$//' "$OUTPUT_FILE"
+        echo "]" >> "$OUTPUT_FILE"
+
+        log "Waiting $CHECK_INTERVAL seconds before rechecking..."
+        sleep "$CHECK_INTERVAL"
+    done
+}
+
+log "Monitoring servers every $CHECK_INTERVAL seconds..."
+monitor_servers
+
+check_for_new_commits() {
+    cd "$REPO_DIR" || { 
+        log "Repository not found at \`$REPO_DIR\`"; 
+        exit 1; 
+    }
+
+    if ! git remote -v | grep -q "upstream"; then
+        log "Upstream repository not configured, attempting to set URL..."
+        if ! git remote set-url upstream "$UPSTREAM_REPO"; then
+            log "Error setting upstream repository URL, attempting to add..."
+            if ! git remote add upstream "$UPSTREAM_REPO"; then
+                log "Error adding upstream repository."
+                exit 1
+            fi
+        fi
     fi
-  fi
-fi
 
-if ! git fetch upstream; then
-  log "Error fetching from upstream repository."
-  exit 1
-fi
+    if ! git fetch upstream; then
+        log "Error fetching from upstream repository."
+        exit 1
+    fi
 
-NEW_COMMITS=$(git rev-list HEAD..upstream/$UPSTREAM_BRANCH --count)
+    new_commits=$(git rev-list HEAD..upstream/"$UPSTREAM_BRANCH" --count)
 
-if [ "$NEW_COMMITS" -gt 0 ]; then
-    log "Found $NEW_COMMITS new commit(s). Attempting to merge changes..."
-    send_discord_notification_embed \
-        "⚠️ New Upstream Changes" \
-        "Found $NEW_COMMITS new commit(s) in upstream \`$UPSTREAM_BRANCH\`. Attempting to merge changes..." \
-        "$BLUE"
-
-    if ! git checkout "$LOCAL_BRANCH"; then
-        log "Error Checking Out Branch"
+    if [ "$new_commits" -gt 0 ]; then
+        log "Found $new_commits new commit(s). Attempting to merge changes..."
         send_discord_notification_embed \
-            "❌ Error Checking Out Branch" \
-            "Error checking out branch \`$LOCAL_BRANCH\`" \
-            "$RED"
-        exit 1
-    fi
-    
-    if ! git merge -m "Automated merge of upstream/$UPSTREAM_BRANCH" --no-ff --strategy=recursive --strategy-option=ours -S upstream/"$UPSTREAM_BRANCH"; then
-        log "Error merging upstream changes"
-        exit 1
-    fi
-    
-    if ! git push origin "$LOCAL_BRANCH"; then
-        log "Error pushing changes"
-        send_discord_notification_embed \
-            "❌ Error Pushing Changes" \
-            "Error pushing changes to upstream \`$UPSTREAM_BRANCH\`" \
-            "$RED"
-        exit 1
-    fi
+            "⚠️ New Upstream Changes" \
+            "Found $new_commits new commit(s) in upstream \`$UPSTREAM_BRANCH\`. Attempting to merge changes..." \
+            "$BLUE"
 
-    if [ $? -eq 0 ]; then
+        if ! git checkout "$LOCAL_BRANCH"; then
+            log "Error checking out branch."
+            send_discord_notification_embed \
+                "❌ Error Checking Out Branch" \
+                "Error checking out branch \`$LOCAL_BRANCH\`" \
+                "$RED"
+            exit 1
+        fi
+
+        if ! git merge -m "Automated merge of upstream/$UPSTREAM_BRANCH" \
+                --no-ff --strategy=recursive --strategy-option=ours -S \
+                upstream/"$UPSTREAM_BRANCH"; then
+            log "Error merging upstream changes."
+            send_discord_notification_embed \
+                "❌ Merge Conflict" \
+                "Merge failed for branch \`$LOCAL_BRANCH\` with upstream \`$UPSTREAM_BRANCH\`. Manual intervention required." \
+                "$RED"
+            exit 1
+        fi
+
+        if ! git push origin "$LOCAL_BRANCH"; then
+            log "Error pushing changes."
+            send_discord_notification_embed \
+                "❌ Error Pushing Changes" \
+                "Error pushing changes to upstream \`$UPSTREAM_BRANCH\`" \
+                "$RED"
+            exit 1
+        fi
+
         log "Merge and push successful. Checking for specific file changes..."
-        
         FILES_CHANGED=false
+        CHANGED_FILES=$(git diff --name-only HEAD..upstream/"$UPSTREAM_BRANCH")
         for FILE in "${FILES_TO_CHECK[@]}"; do
             log "Checking for changes in file: $FILE"
-            CHANGED_FILES=$(git diff --name-only HEAD..upstream/"$UPSTREAM_BRANCH")
-            log "Changed files: $CHANGED_FILES"
             if echo "$CHANGED_FILES" | grep -q "$FILE"; then
                 FILES_CHANGED=true
                 log "Detected changes to $FILE."
             fi
         done
-        
-        log "Starting build process..."
-        if [ "$ENABLE_LOGGING" = true ]; then
-            bash -c "cd build && python3 ../configure.py && ambuild;" >> "$BUILD_LOG" 2>&1
+
+        if [ "$FILES_CHANGED" = true ]; then
+            log "Specified files have changed. Further actions may be needed."
         else
-            bash -c "cd build && python3 ../configure.py && ambuild;"
-        fi
-        
-        if [ $? -eq 0 ]; then
-            log "Build completed successfully."
-            send_discord_notification_embed \
-                "✔️ Build Successful" \
-                "Build successful for branch \`$LOCAL_BRANCH\`. Free to upload build results." \
-                "$GREEN"
-
-            if [ "$FILES_CHANGED" = false ]; then
-                log "No changes detected in specified files. Free to upload build results."
-                send_discord_notification_embed \
-                    "🔄 No Changes Detected" \
-                    "No changes detected in specified files. Free to upload build results." \
-                    "$BLUE"
-
-                if [ "$ENABLE_UPLOAD" = true ]; then
-                    log "Uploads enabled. Uploading build results..."
-                    jq -c '.cs2kz_autoupdate.servers_to_update[]' "$CONFIG_FILE" | while read -r server; do
-                        folder=$(echo "$server" | jq -r '.folder')
-                        user=$(echo "$server" | jq -r '.user')
-                        address=$(echo "$server" | jq -r '.address')
-
-                        if [ ! -f "$OUTPUT_FILE" ]; then
-                            touch "$OUTPUT_FILE" || { echo "Failed to create output file at \`$OUTPUT_FILE\`"; exit 1; }
-                        fi
-
-                        echo "[" > "$OUTPUT_FILE"
-
-                        for server in "${servers_to_update[@]}"; do
-                            log "Updating server: $server"
-                            query_server "$address"
-                        done
-                        sed -i '$ s/,$//' "$OUTPUT_FILE"
-                        echo "]" >> "$OUTPUT_FILE"
-                    done
-                else
-                    log "Uploads disabled. Skipping upload."
-                fi
-            else
-                log "Specified files have changed. Build results will not be copied."
-                send_discord_notification_embed \
-                    "⚠️ Monitored Files Changed" \
-                    "Monitored files were modified in the upstream changes. Build results should be manually checked." \
-                    "$YELLOW"
-            fi
-        else
-            log "Build failed!"
-            send_discord_notification_embed \
-                "❌ Build Failed" \
-                "The build for branch \`$LOCAL_BRANCH\` failed after merging upstream \`$UPSTREAM_BRANCH\`." \
-                "$RED"
-            exit 1
+            log "No changes detected in monitored files."
+            log "Starting Build..."
+            build_project
         fi
     else
-        log "Merge failed. Please resolve conflicts manually."
-        send_discord_notification_embed \
-            "❌ Merge Conflict" \
-            "Merge failed for branch \`$LOCAL_BRANCH\` with upstream \`$UPSTREAM_BRANCH\`. Manual intervention required." \
-            "$RED"
-        exit 1
+        log "No new commits found. Repository is up-to-date."
     fi
-else
-    log "No new commits found. Repository is up-to-date."
-    exit 0
-fi
+}
 
-exit 0
+log "Starting Check for Upstream Changes..."
+check_for_new_commits
+
+build_project() {
+    cd "$REPO_DIR" || {
+        log "Repository not found at \`$REPO_DIR\`"
+        exit 1
+    }
+
+    cd build || {
+        log "Build directory not found at \`$REPO_DIR/build\`"
+        if mkdir build; then
+            log "Build directory created at \`$REPO_DIR/build\`"
+            cd build || exit 1
+        else
+            log "Failed to create build directory at \`$REPO_DIR/build\`"
+            exit 1
+        fi
+    }
+
+    if [ "$ENABLE_LOGGING" = true ]; then
+        bash -c "python3 ../configure.py && ambuild;" >> "$BUILD_LOG_FILE" 2>&1
+    else
+        bash -c "python3 ../configure.py && ambuild;"
+    fi
+
+    if [ $? -eq 0 ]; then
+        log "Build completed successfully."
+        send_discord_notification_embed \
+            "✔️ Build Successful" \
+            "Build successful for branch \`$LOCAL_BRANCH\`. Free to upload build results." \
+            "$GREEN"
+        log "resetting updated server list..."
+        echo "[]" > "$UPDATED_SERVERS"
+    else
+        log "Build failed."
+        send_discord_notification_embed \
+            "❌ Build Failed" \
+            "Build failed for branch \`$LOCAL_BRANCH\`. Manual intervention required." \
+            "$RED"
+    fi
+}   
