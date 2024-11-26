@@ -374,6 +374,8 @@ build_project() {
         log "resetting updated server list..."
         echo "[]" > "$UPDATED_SERVERS"
         ALL_SERVERS_UPDATED=false
+        log "Monitoring servers every $CHECK_INTERVAL seconds..."
+        monitor_servers
     else
         log "Build failed."
         send_discord_notification_embed \
@@ -385,5 +387,3 @@ build_project() {
 
 log "Starting Check for Upstream Changes... Checking every $CHECK_INTERVAL seconds..."
 check_for_new_commits
-log "Monitoring servers every $CHECK_INTERVAL seconds..."
-monitor_servers
