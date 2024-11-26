@@ -142,8 +142,8 @@ query_server() {
                 else
                     log "rsync encountered an error"
                 fi
-            elif [[ "$type" == "external_key" ]]; then
-                log "Uploading to external server: $address"
+            elif [[ "$type" == "remote_key" ]]; then
+                log "Uploading to remote server: $address"
                 rsync -avz -e "ssh -i $ssh_key -p $ssh_port" "$UPLOAD_FOLDER" "$user@$ssh_address:$folder"
                 ssh -i "$ssh_key" -p "$ssh_port" "$user@$ssh_address" "chown -R $user:$user $folder"
                 if [ $? -eq 0 ]; then
@@ -151,8 +151,8 @@ query_server() {
                 else
                     log "rsync encountered an error"
                 fi
-            elif [[ "$type" == "external_pass" ]]; then
-                log "Uploading to external server with password: $address"
+            elif [[ "$type" == "remote_pass" ]]; then
+                log "Uploading to remote server with password: $address"
                 sshpass -p "$ssh_pass" rsync -avz -e "ssh -p $ssh_port" "$UPLOAD_FOLDER" "$user@$ssh_address:$folder"
                 sshpass -p "$ssh_pass" ssh -p "$ssh_port" "$user@$ssh_address" "chown -R $user:$user $folder"
                 if [ $? -eq 0 ]; then
