@@ -1,5 +1,10 @@
 #!/bin/bash
 
+CONFIG_FILE=config.json
+if [ ! -f "$CONFIG_FILE" ]; then
+    CONFIG_FILE=config.example.json
+fi
+
 LOCAL_BRANCH=$(jq -r '.cs2kz_autoupdate.local_branch' "$CONFIG_FILE")
 UPSTREAM_BRANCH=$(jq -r '.cs2kz_autoupdate.upstream_branch' "$CONFIG_FILE")
 UPSTREAM_REPO=$(jq -r '.cs2kz_autoupdate.upstream_repo' "$CONFIG_FILE")
@@ -33,11 +38,6 @@ log() {
 if ! command -v jq &> /dev/null; then
     log "jq could not be found, please install it."
     exit 1
-fi
-
-CONFIG_FILE=config.json
-if [ ! -f "$CONFIG_FILE" ]; then
-    CONFIG_FILE=config.example.json
 fi
 
 if [ ! -f "$CONFIG_FILE" ]; then
