@@ -81,7 +81,7 @@ send_discord_notification_embed() {
 
     if [ -n "$DISCORD_WEBHOOK" ] && [ "$DISCORD_WEBHOOK" != "null" ]; then
     response=$(curl -s -o /dev/null -w "%{http_code}" -H "Content-Type: application/json" -X POST -d "$payload" "$DISCORD_WEBHOOK")
-        if [ "$response" -eq 200 ]; then
+        if [ "$response" -eq 204 ]; then
             log "Successfully posted log to Discord."
         else
             log "Failed to post log to Discord. HTTP response code: $response" >&2
@@ -295,9 +295,9 @@ check_for_new_commits() {
                 exit 1
             fi
 
-            if ! git merge -m "Automated merge of upstream/$UPSTREAM_BRANCH" \
+            if ! merge_commits=$(git merge -m "Automated merge of upstream/$UPSTREAM_BRANCH" \
                     --no-ff --strategy=recursive --strategy-option=ours -S \
-                    upstream/"$UPSTREAM_BRANCH"; then
+                    upstream/"$UPSTREAM_BRANCH"); then
                 log "Error merging upstream changes."
                 send_discord_notification_embed \
                     "❌ Merge Conflict" \
@@ -317,10 +317,9 @@ check_for_new_commits() {
 
             log "Merge and push successful. Checking for specific file changes..."
             FILES_CHANGED=false
-            CHANGED_FILES=$(git diff --name-only HEAD..upstream/"$UPSTREAM_BRANCH")
             for FILE in "${FILES_TO_CHECK[@]}"; do
                 log "Checking for changes in file: $FILE"
-                if echo "$CHANGED_FILES" | grep -q "$FILE"; then
+                if echo "$merge_commits" | grep -q "$FILE"; then
                     FILES_CHANGED=true
                     log "Detected changes to $FILE."
                 fi
