@@ -226,13 +226,15 @@ monitor_servers() {
             type=$(echo "$server" | jq -r '.type')
             ssh_key=$(echo "$server" | jq -r '.ssh_key // empty')
             ssh_port=$(echo "$server" | jq -r '.ssh_port // "22"')
+            ssh_address=$(echo "$server" | jq -r '.ssh_address // $address')
+            ssh_pass=$(echo "$server" | jq -r '.ssh_pass // empty')
 
             if jq -e --arg server "$address" '. | index($server)' "$UPDATED_SERVERS" > /dev/null; then
                 log "Server $address already updated. Skipping."
                 continue
             fi
 
-            query_server "$address" "$folder" "$user" "$type" "$ssh_key" "$ssh_port"
+            query_server "$address" "$folder" "$user" "$type" "$ssh_key" "$ssh_port" "$ssh_address" "$ssh_pass"
         done
 
         sed -i '$ s/,$//' "$OUTPUT_FILE"
