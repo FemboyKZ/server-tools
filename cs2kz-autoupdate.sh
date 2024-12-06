@@ -90,6 +90,7 @@ send_discord_notification_embed() {
 }
 
 if [ -z "$UPDATED_SERVERS" ]; then
+    touch "$UPDATED_SERVERS"
     echo "[]" > "$UPDATED_SERVERS"
 fi
 
