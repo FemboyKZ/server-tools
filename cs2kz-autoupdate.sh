@@ -240,7 +240,7 @@ monitor_servers() {
             port="${address##*:}"
             ssh_key=$(echo "$server" | jq -r '.ssh_key // empty')
             ssh_port=$(echo "$server" | jq -r '.ssh_port // "22"')
-            ssh_address=$(echo "$server" | jq -r '.ssh_address // $ip')
+            ssh_address=$(echo "$server" | jq -r '.ssh_address // "$ip"')
             ssh_pass=$(echo "$server" | jq -r '.ssh_pass // empty')
 
             if jq -e --arg server "$address" '. | index($server)' "$UPDATED_SERVERS" > /dev/null; then
