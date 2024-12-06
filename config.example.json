@@ -47,5 +47,37 @@
         "ssh_pass": "your_ssh_password"
       }
     ]
+  },
+  "lgsm_update": {
+    "webhook_url": "https://discord.com/api/webhooks/your_webhook_id/your_webhook_token",
+    "enable_logging": true,
+    "log_file": "/home/user/server-tools/cs2-lgsm-autoupdate.log",
+    "update_check_interval": 300,
+    "update_check_user": "localuser",
+    "auto_update": true,
+    "game": "cs2",
+    "servers_to_update": [
+      {
+        "user": "localuser",
+        "address": "192.168.1.1:27015",
+        "type": "local"
+      },
+      {
+        "user": "remoteuser1",
+        "address": "192.168.1.2:27015",
+        "type": "remote_key",
+        "ssh_key": "/path/to/private_key",
+        "ssh_port": "22",
+        "ssh_address": "192.168.1.2"
+      },
+      {
+        "user": "remoteuser2",
+        "address": "192.168.1.2:27015",
+        "type": "remote_pass",
+        "ssh_port": "22",
+        "ssh_address": "192.168.1.2",
+        "ssh_pass": "your_ssh_password"
+      }
+    ]
   }
 }
