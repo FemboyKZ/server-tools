@@ -25,8 +25,8 @@ AUTO_UPDATE=${AUTO_UPDATE,,}
 
 ENABLE_BUILDS=$(jq -r '.cs2kz_autoupdate.enable_builds' "$CONFIG_FILE")
 ENABLE_BUILDS=${ENABLE_BUILDS,,}
-OUTPUT_FILE="server-status-temp.json"
-UPDATED_SERVERS="updated-servers-temp.json"
+OUTPUT_FILE="server-status-kz-temp.json"
+UPDATED_SERVERS="updated-servers-kz-temp.json"
 CHECK_INTERVAL=$(jq -r '.cs2kz_autoupdate.update_check_interval' "$CONFIG_FILE")
 
 ALL_SERVERS_UPDATED=false
@@ -157,6 +157,10 @@ query_server() {
                 fi
             elif [[ "$type" == "remote_key" ]]; then
                 log "Uploading to remote server via ssh, authorizing with ssh key: $address"
+                if [ -z "$ssh_key" ]; then
+                    log "SSH key not provided for remote server. Skipping update."
+                    return 1
+                fi
                 rsync -avz -e "ssh -i $ssh_key -p $ssh_port" "$UPLOAD_FOLDER" "$user@$ssh_address:$folder"
                 ssh -i "$ssh_key" -p "$ssh_port" "$user@$ssh_address" "chown -R $user:$user $folder"
                 if [ $? -eq 0 ]; then
