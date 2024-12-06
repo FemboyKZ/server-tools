@@ -85,17 +85,19 @@ if [ -z "$UPDATED_SERVERS" ]; then
 fi
 
 query_server() {
-    local address="$1"
-    local user="$2"
-    local type="$3"
-    local ssh_key="${4:-}" 
+    local user="$1"
+    local address="${2:-"192.168.1.8:27015"}"
+    local type="${3:-local}"
+    local ip="${address%:*}"
+    local port="${address##*:}"
+    local ssh_key="${4:-}"
     local ssh_port="${5:-22}"
-    local ssh_address="${6:-$address}"
-    local ssh_pass="${7:-}" 
+    local ssh_address="${6:-$ip}"
+    local ssh_pass="${7:-}"
 
     echo "Checking server: $address"
 
-    PYTHON_OUTPUT=$(python3 query_server.py "${address%:*}" "${address##*:}")
+    PYTHON_OUTPUT=$(python3 query_server.py "$ip" "$port")
     if [ $? -ne 0 ]; then
         log "Failed to query server $address"
         return 1
@@ -213,6 +215,11 @@ query_server() {
 monitor_servers() {
     local servers=($(jq -c '.lgsm_update.servers_to_update[]' "$CONFIG_FILE"))
 
+    if [ "${#servers[@]}" -eq 0 ]; then
+        log "No servers specified in config file. Skipping server monitoring."
+        return 1
+    fi
+
     while true; do
         if [ "$ALL_SERVERS_UPDATED" = true ]; then
             log "All servers have been updated. Stopping server monitoring."
@@ -222,12 +229,14 @@ monitor_servers() {
         echo "[" > "$OUTPUT_FILE"
 
         for server in "${servers[@]}"; do
-            address=$(echo "$server" | jq -r '.address')
             user=$(echo "$server" | jq -r '.user')
+            address=$(echo "$server" | jq -r '.address')
             type=$(echo "$server" | jq -r '.type')
+            ip="${address%:*}"
+            port="${address##*:}"
             ssh_key=$(echo "$server" | jq -r '.ssh_key // empty')
             ssh_port=$(echo "$server" | jq -r '.ssh_port // "22"')
-            ssh_address=$(echo "$server" | jq -r '.ssh_address // $address')
+            ssh_address=$(echo "$server" | jq -r '.ssh_address // $ip')
             ssh_pass=$(echo "$server" | jq -r '.ssh_pass // empty')
 
             if jq -e --arg server "$address" '. | index($server)' "$UPDATED_SERVERS" > /dev/null; then
@@ -235,7 +244,7 @@ monitor_servers() {
                 continue
             fi
 
-            query_server "$address" "$user" "$type" "$ssh_key" "$ssh_port" "$ssh_address" "$ssh_pass"
+            query_server "$user" "$address" "$type" "$ssh_key" "$ssh_port" "$ssh_address" "$ssh_pass"
         done
 
         sed -i '$ s/,$//' "$OUTPUT_FILE"
@@ -261,9 +270,13 @@ check_for_new_updates () {
 
         check_update_command=$(sudo -iu $CHECK_USER /home/$CHECK_USER/"$GAME"server check-update)
 
-        local_build=$(echo "$check_update_command" | grep "Local build" | awk '{print $3}')
-        remote_build=$(echo "$check_update_command" | grep "Remote build" | awk '{print $3}')
+        local_build=$(echo "$check_update_command" | grep "Local build" | sed -E 's/.*Local build: ([0-9]+).*/\1/')
+        remote_build=$(echo "$check_update_command" | grep "Remote build" | sed -E 's/.*Remote build: ([0-9]+).*/\1/')
 
+        if [[ -z "$local_build" || -z "$remote_build" ]]; then
+            echo "Error: Unable to extract build versions from the output."
+            exit 1
+        fi
 
         if [ "$local_build" -eq "$remote_build" ]; then
             log "No update available. Local build: $local_build, Remote build: $remote_build"

@@ -94,10 +94,10 @@ if [ -z "$UPDATED_SERVERS" ]; then
 fi
 
 run_lftp_mirror() {
-    local address="$1"
-    local folder="$2"
-    local user="$3"
-    local password="$4"
+    local user="$1"
+    local address="$2"
+    local password="$3"
+    local folder="$4"
     local remote_folder="$5"
 
     lftp -u "$user","$password" "$address" <<EOF
@@ -107,18 +107,20 @@ EOF
 }
 
 query_server() {
-    local address="$1"
-    local folder="$2"
-    local user="$3"
-    local type="$4"
+    local folder="${1:-}"
+    local user="${2:-}"
+    local address="${3:-"192.168.1.8:27015"}"
+    local type="${4:-local}"
+    local ip="${address%:*}"
+    local port="${address##*:}"
     local ssh_key="${5:-}" 
     local ssh_port="${6:-22}"
-    local ssh_address="${7:-$address}"
+    local ssh_address="${7:-$ip}"
     local ssh_pass="${8:-}" 
 
     echo "Checking server: $address"
 
-    PYTHON_OUTPUT=$(python3 query_server.py "${address%:*}" "${address##*:}")
+    PYTHON_OUTPUT=$(python3 query_server.py "$ip" "$port")
     if [ $? -ne 0 ]; then
         log "Failed to query server $address"
         return 1
@@ -187,7 +189,7 @@ query_server() {
                     log "lftp could not be found, please install it."
                     return 1
                 fi
-                run_lftp_mirror "$ssh_address" "$UPLOAD_FOLDER" "$user" "$ssh_pass" "$folder"
+                run_lftp_mirror "$user" "$ssh_address" "$ssh_pass" "$UPLOAD_FOLDER" "$folder"
                 if [ $? -eq 0 ]; then
                     log "lftp mirror completed successfully"
                 else
@@ -215,6 +217,11 @@ query_server() {
 monitor_servers() {
     local servers=($(jq -c '.cs2kz_autoupdate.servers_to_update[]' "$CONFIG_FILE"))
 
+    if [ "${#servers[@]}" -eq 0 ]; then
+        log "No servers specified in config file. Skipping server monitoring."
+        return 1
+    fi
+
     while true; do
         if [ "$ALL_SERVERS_UPDATED" = true ]; then
             log "All servers have been updated. Stopping server monitoring."
@@ -224,13 +231,15 @@ monitor_servers() {
         echo "[" > "$OUTPUT_FILE"
 
         for server in "${servers[@]}"; do
-            address=$(echo "$server" | jq -r '.address')
             folder=$(echo "$server" | jq -r '.folder')
             user=$(echo "$server" | jq -r '.user')
-            type=$(echo "$server" | jq -r '.type')
+            address=$(echo "$server" | jq -r '.address')
+            type=$(echo "$server" | jq -r '.type // "local"')
+            ip="${address%:*}"
+            port="${address##*:}"
             ssh_key=$(echo "$server" | jq -r '.ssh_key // empty')
             ssh_port=$(echo "$server" | jq -r '.ssh_port // "22"')
-            ssh_address=$(echo "$server" | jq -r '.ssh_address // $address')
+            ssh_address=$(echo "$server" | jq -r '.ssh_address // $ip')
             ssh_pass=$(echo "$server" | jq -r '.ssh_pass // empty')
 
             if jq -e --arg server "$address" '. | index($server)' "$UPDATED_SERVERS" > /dev/null; then
@@ -238,7 +247,7 @@ monitor_servers() {
                 continue
             fi
 
-            query_server "$address" "$folder" "$user" "$type" "$ssh_key" "$ssh_port" "$ssh_address" "$ssh_pass"
+            query_server "$folder" "$user" "$address" "$type" "$ssh_key" "$ssh_port" "$ssh_address" "$ssh_pass"
         done
 
         sed -i '$ s/,$//' "$OUTPUT_FILE"
