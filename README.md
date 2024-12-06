@@ -36,7 +36,7 @@ Example configuration file:
     "upstream_branch": "dev",                                               # Upstream CS2KZ branch
     "local_branch": "dev",                                                  # Local CS2KZ branch
     "files_to_check": ["cs2kz-server-config.txt", "cs2kz.cfg"],             # List of files to check for changes (relative to repo_dir)
-    "enable_logging": true,                                                 # Enable logging
+    "enable_logging": true,                                                 # Toggle logging
     "log_file": "/home/user/server-tools/cs2kz-autoupdate.log",             # Log file
     "build_log_file": "/home/user/server-tools/cs2kz-autoupdate-build.log", # Build log file
     "update_check_interval": 300,                                           # Update check interval in seconds
@@ -81,11 +81,10 @@ Example configuration file:
         "ssh_pass": "your_ssh_password"
       }
     ],
-  }
+  },
+  ...
 }
 ```
-
-### Setting up the script
 
 Run the following commands to set up the script:
 
@@ -93,6 +92,78 @@ Run the following commands to set up the script:
 chmod +x cs2kz-autoupdate.sh                # Make the script executable
 dos2unix cs2kz-autoupdate.sh                # Make sure the file is in Unix format
 tmux new -d 'bash cs2kz-autoupdate.sh'      # Run the script in the background
+```
+
+## LGSM Autoupdater
+
+Shell script to check for CS2 updates and automatically update local and remote servers that use LGSM.
+
+### Setup
+
+Install the following packages:
+
+```bash
+sudo apt-get update && sudo apt-get install -y git dos2unix python3 python3-pip
+sudo apt-get install lftp sshpass jq rsync tmux
+
+pip3 install a2s
+```
+
+Create and fill out the configuration file.
+
+```bash
+cp config.example.json config.json && nano config.json
+```
+
+Example configuration file:
+
+```json
+{
+  ...
+  "lgsm_update": {
+    "webhook_url": "https://discord.com/api/webhooks/id/token",             # Discord webhook URL
+    "enable_logging": true,                                                 # Toggle logging
+    "log_file": "/home/user/server-tools/cs2-lgsm-autoupdate.log",          # Log file
+    "update_check_interval": 300,                                           # Update check interval in seconds
+    "update_check_user": "localuser",                                       # User to check for updates
+    "auto_update": true,                                                    # Toggle auto updates (false for log only)
+    "game": "cs2",                                                          # Game to update (only tested with cs2)
+    "servers_to_update": [                                                  # List of servers to update
+      {
+        # Local server
+        "user": "localuser",
+        "address": "192.168.1.1:27015",
+        "type": "local"
+      },
+      {
+        # Remote server with SSH key
+        "user": "remoteuser1",
+        "address": "192.168.1.2:27015",
+        "type": "remote_key",
+        "ssh_key": "/path/to/private_key",
+        "ssh_port": "22",
+        "ssh_address": "192.168.1.2"
+      },
+      {
+        # Remote server with SSH using password
+        "user": "remoteuser2",
+        "address": "192.168.1.2:27015",
+        "type": "remote_pass",
+        "ssh_port": "22",
+        "ssh_address": "192.168.1.2",
+        "ssh_pass": "your_ssh_password"
+      }
+    ]
+  }
+}
+```
+
+Run the following commands to set up the script:
+
+```bash
+chmod +x lgsm-update.sh                # Make the script executable
+dos2unix lgsm-update.sh                # Make sure the file is in Unix format
+tmux new -d 'bash lgsm-update.sh'      # Run the script in the background
 ```
 
 ## gameinfo.gi edit script
