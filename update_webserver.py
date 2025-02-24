@@ -31,6 +31,7 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
         ul {{ list-style-type: none; padding-left: 20px; }}
         .file-size {{ color: fuchsia; }}
     </style>
+    <link rel="shortcut icon" href="https://files.femboy.kz/web/images/fucker.ico">
 </head>
 <body>
     <h1>FKZ Files - .{filetype.upper()} - /{os.path.basename(os.path.abspath(directory))}/</h1>
@@ -104,6 +105,7 @@ def generate_index(directory, all_filetypes, base_dir):
         ul {{ list-style-type: none; padding-left: 20px; }}
         .file-size {{ color: fuchsia; }}
     </style>
+    <link rel="shortcut icon" href="https://files.femboy.kz/web/images/fucker.ico">
 </head>
 <body>
     <h1>FKZ File Index - /{os.path.basename(os.path.abspath(directory))}/</h1>
