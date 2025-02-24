@@ -2,6 +2,8 @@
 
 A collection of tools to help with running the FKZ CS2KZ servers.
 
+These tools are WIP and wiki for them is missing/incomplete!!!
+
 ## Autoupdate CS2KZ
 
 Shell script to check for new commits to [CS2KZ](https://github.com/KZGlobalTeam/cs2kz-metamod), then merge those changes to local branch, build, and copy to gameserver folders.
