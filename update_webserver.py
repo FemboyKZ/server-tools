@@ -25,11 +25,47 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
 <head>
     <title>FKZ Files - .{filetype.upper()} - /{os.path.basename(os.path.abspath(directory))}/</title>
     <style>
-        body {{ background-color: rgb(105, 64, 83); font-family: monospace, sans-serif; color: rgb(255, 80, 164); }}
-        a {{ color: rgb(255, 80, 164); text-decoration: none; }}
-        a:hover {{ color: rgb(135, 1, 66); text-decoration: underline; background-color: rgb(255, 80, 164); }}
-        ul {{ list-style-type: none; padding-left: 20px; }}
-        .file-size {{ color: fuchsia; }}
+        body {{
+            background-color: rgb(105, 64, 83);
+            font-family: monospace, sans-serif;
+            color: rgb(255, 80, 164);
+        }}
+        a {{
+            color: rgb(255, 80, 164);
+            text-decoration: none;
+        }}
+        a:hover {{
+            color: rgb(135, 1, 66);
+            text-decoration: underline;
+            background-color: rgb(255, 80, 164);
+        }}
+        ul {{
+            list-style-type: none;
+            padding-left: 20px;
+        }}
+        li {{
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }}
+        .file-size {{
+            display: inline-block;
+            min-width: 80px;
+            text-align: right;
+            margin-right: 10px;
+            color: fuchsia;
+        }}
+        button {{
+            margin-top: 20px;
+            padding: 8px 12px;
+            background-color: rgb(255,80,164);
+            color: white;
+            border: none;
+            cursor: pointer;
+        }}
+        button:hover {{
+            background-color: rgb(135,1,66);
+        }}
     </style>
     <link rel="shortcut icon" href="https://files.femboy.kz/web/images/fucker.ico">
 </head>
@@ -68,9 +104,10 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
 
     if up_link:
         html += "<br>\n" + up_link
-    
+
     html += """
     </ul>
+    <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});">Back to Top</button>
     <script>
         document.getElementById("searchInput").addEventListener("input", function() {
             const query = this.value.toLowerCase();
@@ -99,11 +136,47 @@ def generate_index(directory, all_filetypes, base_dir):
 <head>
     <title>FKZ File Index - /{os.path.basename(os.path.abspath(directory))}/</title>
     <style>
-        body {{ background-color: rgb(105, 64, 83); font-family: monospace, sans-serif; color: rgb(255, 80, 164); }}
-        a {{ color: rgb(255, 80, 164); text-decoration: none; }}
-        a:hover {{ color: rgb(135, 1, 66); text-decoration: underline; background-color: rgb(255, 80, 164); }}
-        ul {{ list-style-type: none; padding-left: 20px; }}
-        .file-size {{ color: fuchsia; }}
+        body {{
+            background-color: rgb(105, 64, 83);
+            font-family: monospace, sans-serif;
+            color: rgb(255, 80, 164);
+        }}
+        a {{
+            color: rgb(255, 80, 164);
+            text-decoration: none;
+        }}
+        a:hover {{
+            color: rgb(135, 1, 66);
+            text-decoration: underline;
+            background-color: rgb(255, 80, 164);
+        }}
+        ul {{
+            list-style-type: none;
+            padding-left: 20px;
+        }}
+        li {{
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }}
+        .file-size {{
+            display: inline-block;
+            min-width: 80px;
+            text-align: right;
+            margin-right: 10px;
+            color: fuchsia;
+        }}
+        button {{
+            margin-top: 20px;
+            padding: 8px 12px;
+            background-color: rgb(255,80,164);
+            color: white;
+            border: none;
+            cursor: pointer;
+        }}
+        button:hover {{
+            background-color: rgb(135,1,66);
+        }}
     </style>
     <link rel="shortcut icon" href="https://files.femboy.kz/web/images/fucker.ico">
 </head>
@@ -124,7 +197,7 @@ def generate_index(directory, all_filetypes, base_dir):
     if up_link:
         html += up_link
         html += "<br>\n"
-    
+
     items = sorted(os.listdir(directory), key=lambda x: (not os.path.isdir(os.path.join(directory, x)), x.lower()))
     for item in items:
         item_path = os.path.join(directory, item)
@@ -142,6 +215,7 @@ def generate_index(directory, all_filetypes, base_dir):
             html += f'<li><span class="file-size">[{file_size} bytes]</span> <a href="{item}">{item}</a></li>\n'
     html += """
     </ul>
+    <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});">Back to Top</button>
     <script>
         document.getElementById("searchInput").addEventListener("input", function() {
             const query = this.value.toLowerCase();
@@ -163,7 +237,6 @@ def generate_index(directory, all_filetypes, base_dir):
 def process_directory(directory, base_dir):
     skip_html = os.path.exists(os.path.join(directory, EXCLUDE_MARKER))
     if not skip_html:
-
         all_filetypes = get_filetypes(directory)
 
         if all_filetypes:
