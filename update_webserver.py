@@ -1,5 +1,6 @@
 import os
 
+# CFG
 EXCLUDE_MARKER = "EXCLUDE_FOLDER"
 IGNORED_FILETYPES = ["7z", "html", "php", "py"]
 
@@ -32,7 +33,7 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
     </style>
 </head>
 <body>
-    <h1>FKZ Files - {filetype.upper()} - {os.path.basename(os.path.abspath(directory))}</h1>
+    <h1>FKZ Files - .{filetype.upper()} - /{os.path.basename(os.path.abspath(directory))}/</h1>
     <nav>
         <a href="index.html">[Home]</a>"""
 
@@ -44,16 +45,18 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
     </nav>
     <br>
     <input type="text" id="searchInput" placeholder="Search... :3" style="margin-bottom: 20px; padding: 5px;">
+    <br>
     <ul>
     """
 
     if up_link:
         html += up_link
+        html += "<br>\n"
 
     items = sorted(os.listdir(directory), key=lambda x: (not os.path.isdir(os.path.join(directory, x)), x.lower()))
     for item in items:
         item_path = os.path.join(directory, item)
-        if os.path.isdir(item_path) and not os.path.exists(os.path.join(item_path, EXCLUDE_MARKER)):
+        if os.path.isdir(item_path):
             html += f'<li><a href="{item}/index.html">[{item}]</a></li>\n'
 
     for item in items:
@@ -63,7 +66,7 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
             html += f'<li><span class="file-size">[{file_size} bytes]</span> <a href="{item}">{item}</a></li>\n'
 
     if up_link:
-        html += up_link
+        html += "<br>\n" + up_link
     
     html += """
     </ul>
@@ -93,7 +96,7 @@ def generate_index(directory, all_filetypes, base_dir):
     html = f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>FKZ File Index - {os.path.basename(os.path.abspath(directory))}</title>
+    <title>FKZ File Index - /{os.path.basename(os.path.abspath(directory))}/</title>
     <style>
         body {{ background-color: rgb(105, 64, 83); font-family: monospace, sans-serif; color: rgb(255, 80, 164); }}
         a {{ color: rgb(255, 80, 164); text-decoration: none; }}
@@ -103,29 +106,31 @@ def generate_index(directory, all_filetypes, base_dir):
     </style>
 </head>
 <body>
-    <h1>FKZ File Index - {os.path.basename(os.path.abspath(directory))}</h1>
+    <h1>FKZ File Index - /{os.path.basename(os.path.abspath(directory))}/</h1>
     <nav>
     """
     for ft in all_filetypes:
         html += f' | <a href="{ft}.html">[{ft.upper()}]</a>'
     html += """
     </nav>
+    <br>
+    <input type="text" id="searchInput" placeholder="Search..." style="margin-bottom: 20px; padding: 5px;">
+    <br>
     <h2>Folders</h2>
     <ul>
     """
     if up_link:
         html += up_link
-
+        html += "<br>\n"
+    
     items = sorted(os.listdir(directory), key=lambda x: (not os.path.isdir(os.path.join(directory, x)), x.lower()))
     for item in items:
         item_path = os.path.join(directory, item)
-        if os.path.isdir(item_path) and not os.path.exists(os.path.join(item_path, EXCLUDE_MARKER)):
+        if os.path.isdir(item_path):
             html += f'<li><a href="{item}/index.html">[{item}]</a></li>\n'
     html += """
     </ul>
     <h2>Files</h2>
-    <br>
-    <input type="text" id="searchInput" placeholder="Search..." style="margin-bottom: 20px; padding: 5px;">
     <ul>
     """
     for item in items:
@@ -154,17 +159,18 @@ def generate_index(directory, all_filetypes, base_dir):
         f.write(html)
 
 def process_directory(directory, base_dir):
-    if os.path.exists(os.path.join(directory, EXCLUDE_MARKER)):
-        print(f"Skipping directory {directory} due to exclusion marker.")
-        return
+    skip_html = os.path.exists(os.path.join(directory, EXCLUDE_MARKER))
+    if not skip_html:
 
-    all_filetypes = get_filetypes(directory)
+        all_filetypes = get_filetypes(directory)
 
-    if all_filetypes:
-        for filetype in all_filetypes:
-            generate_html(directory, filetype, all_filetypes, base_dir)
+        if all_filetypes:
+            for filetype in all_filetypes:
+                generate_html(directory, filetype, all_filetypes, base_dir)
 
-    generate_index(directory, all_filetypes, base_dir)
+        generate_index(directory, all_filetypes, base_dir)
+    else:
+        print(f"Skipping HTML generation for {directory} due to exclusion marker.")
 
     for item in sorted(os.listdir(directory)):
         item_path = os.path.join(directory, item)
