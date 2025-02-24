@@ -114,7 +114,7 @@ def generate_index(directory, all_filetypes, base_dir):
     html += """
     </nav>
     <br>
-    <input type="text" id="searchInput" placeholder="Search..." style="margin-bottom: 20px; padding: 5px;">
+    <input type="text" id="searchInput" placeholder="Search... :3" style="margin-bottom: 20px; padding: 5px;">
     <br>
     <h2>Folders</h2>
     <ul>
