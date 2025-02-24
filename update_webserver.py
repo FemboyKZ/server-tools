@@ -1,7 +1,7 @@
 import os
 
 EXCLUDE_MARKER = "EXCLUDE_FOLDER"
-IGNORED_FILETYPES = ["7z", "html", "php"]
+IGNORED_FILETYPES = ["7z", "html", "php", "py"]
 
 def get_filetypes(directory):
     filetypes = set()
@@ -22,7 +22,7 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
     html = f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>FKZ Files - {filetype.upper()} - {os.path.basename(os.path.abspath(directory))}</title>
+    <title>FKZ Files - .{filetype.upper()} - /{os.path.basename(os.path.abspath(directory))}/</title>
     <style>
         body {{ background-color: rgb(105, 64, 83); font-family: monospace, sans-serif; color: rgb(255, 80, 164); }}
         a {{ color: rgb(255, 80, 164); text-decoration: none; }}
@@ -43,7 +43,7 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
     html += """
     </nav>
     <br>
-    <input type="text" id="searchInput" placeholder="Search..." style="margin-bottom: 20px; padding: 5px;">
+    <input type="text" id="searchInput" placeholder="Search... :3" style="margin-bottom: 20px; padding: 5px;">
     <ul>
     """
 
