@@ -1,6 +1,7 @@
 import os
 
 EXCLUDE_MARKER = "EXCLUDE_FOLDER"
+IGNORED_FILETYPES = ["7z", "html", "php"]
 
 def get_filetypes(directory):
     filetypes = set()
@@ -8,8 +9,9 @@ def get_filetypes(directory):
         item_path = os.path.join(directory, item)
         if os.path.isfile(item_path):
             _, ext = os.path.splitext(item)
-            if ext:
-                filetypes.add(ext.lstrip(".").lower())
+            ext = ext.lstrip(".").lower()
+            if ext and ext not in IGNORED_FILETYPES:
+                filetypes.add(ext)
     return sorted(filetypes)
 
 def generate_html(directory, filetype, all_filetypes, base_dir):
