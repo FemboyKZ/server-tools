@@ -18,7 +18,7 @@ def get_filetypes(directory):
 def generate_html(directory, filetype, all_filetypes, base_dir):
     up_link = ''
     if os.path.abspath(directory) != os.path.abspath(base_dir):
-        up_link = '<li><a href="../index.html">[Go Up]</a></li>\n'
+        up_link = '<li><a href="../index.html">[Go Back]</a></li>\n'
     
     html = f"""<!DOCTYPE html>
 <html>
@@ -92,7 +92,7 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
 def generate_index(directory, all_filetypes, base_dir):
     up_link = ''
     if os.path.abspath(directory) != os.path.abspath(base_dir):
-        up_link = '<li><a href="../index.html">[Go Up]</a></li>\n'
+        up_link = '<li><a href="../index.html">[Go Back]</a></li>\n'
     
     html = f"""<!DOCTYPE html>
 <html>
