@@ -2,7 +2,7 @@ import os
 
 # CFG
 EXCLUDE_MARKER = "EXCLUDE_FOLDER"
-IGNORED_FILETYPES = ["7z", "html", "php", "py", "sh", "js"]
+IGNORED_FILETYPES = ["7z", "html", "php", "py", "sh", "js", "htaccess"]
 
 
 def get_filetypes(directory):
