@@ -11,7 +11,10 @@ def get_filetypes(directory):
         item_path = os.path.join(directory, item)
         if os.path.isfile(item_path):
             _, ext = os.path.splitext(item)
-            ext = ext.lstrip(".").lower()
+            if ext == "" and item.startswith("."):
+                ext = item[1:]
+            else:
+                ext = ext.lstrip(".").lower()
             if ext and ext not in IGNORED_FILETYPES:
                 filetypes.add(ext)
     return sorted(filetypes)
@@ -103,7 +106,15 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
 
     for item in items:
         item_path = os.path.join(directory, item)
-        if os.path.isfile(item_path) and item.lower().endswith(f".{filetype}"):
+        if os.path.isfile(item_path):
+            _, ext = os.path.splitext(item)
+
+            if ext == "" and item.startswith("."):
+                ext = item[1:]
+            else:
+                ext = ext.lstrip(".").lower()
+            if ext in IGNORED_FILETYPES:
+                continue
             file_size = os.path.getsize(item_path)
             html += f'<li><span class="file-size">[{file_size} bytes]</span> <a href="{item}">{item}</a></li>\n'
 
@@ -232,7 +243,11 @@ def generate_index(directory, all_filetypes, base_dir):
         item_path = os.path.join(directory, item)
         if os.path.isfile(item_path):
             _, ext = os.path.splitext(item)
-            ext = ext.lstrip(".").lower()
+
+            if ext == "" and item.startswith("."):
+                ext = item[1:]
+            else:
+                ext = ext.lstrip(".").lower()
             if ext in IGNORED_FILETYPES:
                 continue
             file_size = os.path.getsize(item_path)
