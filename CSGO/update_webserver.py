@@ -4,6 +4,7 @@ import os
 EXCLUDE_MARKER = "EXCLUDE_FOLDER"
 IGNORED_FILETYPES = ["7z", "html", "php", "py"]
 
+
 def get_filetypes(directory):
     filetypes = set()
     for item in os.listdir(directory):
@@ -15,11 +16,12 @@ def get_filetypes(directory):
                 filetypes.add(ext)
     return sorted(filetypes)
 
+
 def generate_html(directory, filetype, all_filetypes, base_dir):
-    up_link = ''
+    up_link = ""
     if os.path.abspath(directory) != os.path.abspath(base_dir):
         up_link = '<li><a href="../index.html">[Go Back]</a></li>\n'
-    
+
     html = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -77,7 +79,7 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
     for ft in all_filetypes:
         if ft != filetype:
             html += f' | <a href="{ft}.html">[{ft.upper()}]</a>'
-    
+
     html += """
     </nav>
     <br>
@@ -90,7 +92,10 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
         html += up_link
         html += "<br>\n"
 
-    items = sorted(os.listdir(directory), key=lambda x: (not os.path.isdir(os.path.join(directory, x)), x.lower()))
+    items = sorted(
+        os.listdir(directory),
+        key=lambda x: (not os.path.isdir(os.path.join(directory, x)), x.lower()),
+    )
     for item in items:
         item_path = os.path.join(directory, item)
         if os.path.isdir(item_path):
@@ -121,16 +126,17 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
 </body>
 </html>
     """
-    
+
     output_file = os.path.join(directory, f"{filetype}.html")
     with open(output_file, "w") as f:
         f.write(html)
 
+
 def generate_index(directory, all_filetypes, base_dir):
-    up_link = ''
+    up_link = ""
     if os.path.abspath(directory) != os.path.abspath(base_dir):
         up_link = '<li><a href="../index.html">[Go Back]</a></li>\n'
-    
+
     html = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -198,7 +204,10 @@ def generate_index(directory, all_filetypes, base_dir):
         html += up_link
         html += "<br>\n"
 
-    items = sorted(os.listdir(directory), key=lambda x: (not os.path.isdir(os.path.join(directory, x)), x.lower()))
+    items = sorted(
+        os.listdir(directory),
+        key=lambda x: (not os.path.isdir(os.path.join(directory, x)), x.lower()),
+    )
     for item in items:
         item_path = os.path.join(directory, item)
         if os.path.isdir(item_path):
@@ -229,10 +238,11 @@ def generate_index(directory, all_filetypes, base_dir):
 </body>
 </html>
     """
-    
+
     output_file = os.path.join(directory, "index.html")
     with open(output_file, "w") as f:
         f.write(html)
+
 
 def process_directory(directory, base_dir):
     skip_html = os.path.exists(os.path.join(directory, EXCLUDE_MARKER))
@@ -252,9 +262,11 @@ def process_directory(directory, base_dir):
         if os.path.isdir(item_path):
             process_directory(item_path, base_dir)
 
+
 def main(directory="."):
     base_dir = os.path.abspath(directory)
     process_directory(directory, base_dir)
+
 
 if __name__ == "__main__":
     main()
