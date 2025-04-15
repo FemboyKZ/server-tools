@@ -2,7 +2,7 @@ import os
 
 # CFG
 EXCLUDE_MARKER = "EXCLUDE_FOLDER"
-IGNORED_FILETYPES = ["7z", "html", "php", "py"]
+IGNORED_FILETYPES = ["7z", "html", "php", "py", "sh", "js"]
 
 
 def get_filetypes(directory):
@@ -114,14 +114,25 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
     </ul>
     <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});">Back to Top</button>
     <script>
-        document.getElementById("searchInput").addEventListener("input", function() {
-            const query = this.value.toLowerCase();
+        function performSearch() {
+            const query = document.getElementById("searchInput").value.toLowerCase();
             const items = document.querySelectorAll("li");
             items.forEach(item => {
                 const text = item.textContent.toLowerCase();
                 item.style.display = text.includes(query) ? "block" : "none";
             });
-        });
+        }
+
+        document.getElementById("searchInput").addEventListener("input", performSearch);
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const searchTerm = urlParams.get('search');
+  
+        if (searchTerm) {
+            const searchInput = document.getElementById("searchInput");
+            searchInput.value = searchTerm; // Fill the input with the search term
+            performSearch(); // Trigger the search
+        }
     </script>
 </body>
 </html>
@@ -220,20 +231,35 @@ def generate_index(directory, all_filetypes, base_dir):
     for item in items:
         item_path = os.path.join(directory, item)
         if os.path.isfile(item_path):
+            _, ext = os.path.splitext(item)
+            ext = ext.lstrip(".").lower()
+            if ext in IGNORED_FILETYPES:
+                continue
             file_size = os.path.getsize(item_path)
             html += f'<li><span class="file-size">[{file_size} bytes]</span> <a href="{item}">{item}</a></li>\n'
     html += """
     </ul>
     <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});">Back to Top</button>
     <script>
-        document.getElementById("searchInput").addEventListener("input", function() {
-            const query = this.value.toLowerCase();
+        function performSearch() {
+            const query = document.getElementById("searchInput").value.toLowerCase();
             const items = document.querySelectorAll("li");
             items.forEach(item => {
                 const text = item.textContent.toLowerCase();
                 item.style.display = text.includes(query) ? "block" : "none";
             });
-        });
+        }
+
+        document.getElementById("searchInput").addEventListener("input", performSearch);
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const searchTerm = urlParams.get('search');
+  
+        if (searchTerm) {
+            const searchInput = document.getElementById("searchInput");
+            searchInput.value = searchTerm; // Fill the input with the search term
+            performSearch(); // Trigger the search
+        }
     </script>
 </body>
 </html>
