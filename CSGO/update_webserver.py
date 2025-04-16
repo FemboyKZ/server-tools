@@ -51,8 +51,10 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
     folders_count = 0
     for item in items:
         item_path = os.path.join(directory, item)
-        if os.path.isdir(item_path):
-            folders_count += 1
+        skip_subdir = os.path.exists(os.path.join(item_path, EXCLUDE_MARKER))
+        if not skip_subdir:
+            if os.path.isdir(item_path):
+                folders_count += 1
     files_count = 0
     for item in items:
         item_path = os.path.join(directory, item)
@@ -139,8 +141,10 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
     )
     for item in items:
         item_path = os.path.join(directory, item)
-        if os.path.isdir(item_path):
-            folders_html += f'<li><a href="{item}/">[{item}]</a></li>\n'
+        skip_subdir = os.path.exists(os.path.join(item_path, EXCLUDE_MARKER))
+        if not skip_subdir:
+            if os.path.isdir(item_path):
+                folders_html += f'<li><a href="{item}/">[{item}]</a></li>\n'
 
     if folders_html:
         html += (
@@ -228,8 +232,10 @@ def generate_index(directory, all_filetypes, base_dir):
     folders_count = 0
     for item in items:
         item_path = os.path.join(directory, item)
-        if os.path.isdir(item_path):
-            folders_count += 1
+        skip_subdir = os.path.exists(os.path.join(item_path, EXCLUDE_MARKER))
+        if not skip_subdir:
+            if os.path.isdir(item_path):
+                folders_count += 1
     files_count = 0
     for item in items:
         item_path = os.path.join(directory, item)
@@ -319,8 +325,10 @@ def generate_index(directory, all_filetypes, base_dir):
     )
     for item in items:
         item_path = os.path.join(directory, item)
-        if os.path.isdir(item_path):
-            folders_html += f'<li><a href="{item}/">[{item}]</a></li>\n'
+        skip_subdir = os.path.exists(os.path.join(item_path, EXCLUDE_MARKER))
+        if not skip_subdir:
+            if os.path.isdir(item_path):
+                folders_html += f'<li><a href="{item}/">[{item}]</a></li>\n'
 
     if folders_html:
         html += (
