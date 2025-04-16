@@ -439,11 +439,11 @@ if __name__ == "__main__":
 
     if site_ver == "na":
         MIRROR_NAME = "EU site"
-        MIRROR_TAG = "EU"
+        MIRROR_TAG = "NA"
         MIRROR_URL = "https://files.femboy.kz"
     elif site_ver == "eu":
         MIRROR_NAME = "NA Site"
-        MIRROR_TAG = "NA"
+        MIRROR_TAG = "EU"
         MIRROR_URL = "https://files-na.femboy.kz"
     else:
         print("Invalid site version. Use 'eu' or 'na'.")
