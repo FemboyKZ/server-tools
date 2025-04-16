@@ -202,8 +202,8 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
   
         if (searchTerm) {
             const search = document.getElementById("search");
-            search.value = searchTerm; // Fill the input with the search term
-            performSearch(); // Trigger the search
+            search.value = searchTerm;
+            performSearch();
         }
     </script>
 </body>
@@ -401,8 +401,8 @@ def generate_index(directory, all_filetypes, base_dir):
   
         if (searchTerm) {
             const search = document.getElementById("search");
-            search.value = searchTerm; // Fill the input with the search term
-            performSearch(); // Trigger the search
+            search.value = searchTerm;
+            performSearch();
         }
     </script>
 </body>
