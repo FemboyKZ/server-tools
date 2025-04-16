@@ -62,7 +62,7 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
     html = f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>FKZ File Index - {MIRROR_TAG} - .{filetype.upper()} - /{os.path.basename(os.path.abspath(directory))}/</title>
+    <title>FKZ File Index - {MIRROR_TAG} - /{os.path.basename(os.path.abspath(directory))}/ - .{filetype.upper()}</title>
     <style>
         body {{
             background-color: rgb(105, 64, 83);
@@ -110,7 +110,7 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
     <link rel="shortcut icon" href="https://files.femboy.kz/web/images/fucker.ico">
 </head>
 <body>
-    <h1>FKZ File Index - {MIRROR_TAG} - .{filetype.upper()} - /{os.path.basename(os.path.abspath(directory))}/</h1>
+    <h1>FKZ File Index - {MIRROR_TAG} - /{os.path.basename(os.path.abspath(directory))}/ - .{filetype.upper()}</h1>
     <nav>
         <a href="./">[Home]</a>"""
 
