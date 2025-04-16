@@ -4,6 +4,8 @@ import sys
 # CFG
 EXCLUDE_MARKER = "EXCLUDE_FOLDER"
 IGNORED_FILETYPES = ["7z", "html", "php", "py", "sh", "js", "htaccess"]
+MIN_FILES_FOR_NAV = 20
+MIN_FOLDERS_FOR_NAV = 30
 
 
 def get_filetypes(directory):
@@ -22,12 +24,14 @@ def get_filetypes(directory):
 
 
 def format_file_size(bytes_size):
-    if bytes_size >= 1024 * 1024:
-        return f"{round(bytes_size / (1024 * 1024), 1)} MB"
+    if bytes_size >= 1024**3:
+        return f"{round(bytes_size / (1024 ** 3)):6.1f} GB"
+    elif bytes_size >= 1024**2:
+        return f"{round(bytes_size / (1024 ** 2)):6.1f} MB"
     elif bytes_size >= 1024:
-        return f"{round(bytes_size / 1024, 1)} KB"
+        return f"{round(bytes_size / 1024):6.1f} KB"
     else:
-        return f"{bytes_size} bytes"
+        return f"{bytes_size:6d}  B"
 
 
 def generate_html(directory, filetype, all_filetypes, base_dir):
@@ -39,6 +43,21 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
     mirror_link = (
         f"{MIRROR_URL}/{relative_path}/" if relative_path != "." else MIRROR_URL + "/"
     )
+
+    items = sorted(
+        os.listdir(directory),
+        key=lambda x: (not os.path.isdir(os.path.join(directory, x)), x.lower()),
+    )
+    folders_count = 0
+    for item in items:
+        item_path = os.path.join(directory, item)
+        if os.path.isdir(item_path):
+            folders_count += 1
+    files_count = 0
+    for item in items:
+        item_path = os.path.join(directory, item)
+        if os.path.isfile(item_path) and item.lower().endswith(f".{filetype}"):
+            files_count += 1
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -70,10 +89,11 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
         }}
         .file-size {{
             display: inline-block;
-            min-width: 80px;
+            width: 100px;
             text-align: right;
             margin-right: 10px;
             color: fuchsia;
+            white-space: pre;
         }}
         button {{
             margin-top: 20px;
@@ -92,7 +112,7 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
 <body>
     <h1>FKZ Files - .{filetype.upper()} - /{os.path.basename(os.path.abspath(directory))}/</h1>
     <nav>
-        <a href="index.html">[Home]</a>"""
+        <a href="./">[Home]</a>"""
 
     for ft in all_filetypes:
         if ft != filetype:
@@ -107,13 +127,11 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
         <a href="{mirror_link}">[{MIRROR_NAME}]</a>
     </nav>
     <br>
-    <h2>Folders</h2>
-    <ul>
     """
 
+    folders_html = ""
     if up_link:
-        html += up_link
-        html += "<br>\n"
+        folders_html += up_link + "<br>\n"
 
     items = sorted(
         os.listdir(directory),
@@ -122,27 +140,47 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
     for item in items:
         item_path = os.path.join(directory, item)
         if os.path.isdir(item_path):
-            html += f'<li><a href="{item}/">[{item}]</a></li>\n'
+            folders_html += f'<li><a href="{item}/">[{item}]</a></li>\n'
 
-    html += """
-    </ul>
-    <h2>Files</h2>
+    if folders_html:
+        html += (
+            """
+    <h2>Folders</h2>
     <ul>
     """
+            + folders_html
+            + """
+    </ul>"""
+        )
 
+    files_html = ""
     for item in items:
         item_path = os.path.join(directory, item)
         if os.path.isfile(item_path) and item.lower().endswith(f".{filetype}"):
             file_size = os.path.getsize(item_path)
             formatted_size = format_file_size(file_size)
-            html += f'<li><span class="file-size">[{formatted_size}]</span> <a href="{item}">{item}</a></li>\n'
+            files_html += f'<li><span class="file-size">[{formatted_size}]</span> <a href="{item}">{item}</a></li>\n'
 
-    if up_link:
-        html += "<br>\n" + up_link
+    if files_html:
+        html += (
+            """
+    <h2>Files</h2>
+    <ul>
+            """
+            + files_html
+        )
+
+        if files_count >= MIN_FILES_FOR_NAV:
+            if up_link:
+                html += "<br>\n" + up_link
+            html += """
+    <nav>
+        <a href="#" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); return false;">[Back to Top]</a>
+    </nav>
+                """
+        html += "</ul>\n"
 
     html += """
-    </ul>
-    <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});">Back to Top</button>
     <script>
         function performSearch() {
             const query = document.getElementById("search").value.toLowerCase();
@@ -183,6 +221,28 @@ def generate_index(directory, all_filetypes, base_dir):
         f"{MIRROR_URL}/{relative_path}/" if relative_path != "." else MIRROR_URL + "/"
     )
 
+    items = sorted(
+        os.listdir(directory),
+        key=lambda x: (not os.path.isdir(os.path.join(directory, x)), x.lower()),
+    )
+    folders_count = 0
+    for item in items:
+        item_path = os.path.join(directory, item)
+        if os.path.isdir(item_path):
+            folders_count += 1
+    files_count = 0
+    for item in items:
+        item_path = os.path.join(directory, item)
+        if os.path.isfile(item_path):
+            _, ext = os.path.splitext(item)
+            if ext == "" and item.startswith("."):
+                ext = item[1:]
+            else:
+                ext = ext.lstrip(".").lower()
+            if ext in IGNORED_FILETYPES:
+                continue
+            files_count += 1
+
     html = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -213,10 +273,11 @@ def generate_index(directory, all_filetypes, base_dir):
         }}
         .file-size {{
             display: inline-block;
-            min-width: 80px;
+            width: 100px;
             text-align: right;
             margin-right: 10px;
             color: fuchsia;
+            white-space: pre;
         }}
         button {{
             margin-top: 20px;
@@ -246,13 +307,11 @@ def generate_index(directory, all_filetypes, base_dir):
     <nav>
         <a href="{mirror_link}">[{MIRROR_NAME}]</a>
     </nav>
-    <br>
-    <h2>Folders</h2>
-    <ul>
-    """
+    <br>"""
+
+    folders_html = ""
     if up_link:
-        html += up_link
-        html += "<br>\n"
+        folders_html += up_link + "<br>\n"
 
     items = sorted(
         os.listdir(directory),
@@ -261,17 +320,32 @@ def generate_index(directory, all_filetypes, base_dir):
     for item in items:
         item_path = os.path.join(directory, item)
         if os.path.isdir(item_path):
-            html += f'<li><a href="{item}/">[{item}]</a></li>\n'
-    html += """
-    </ul>
-    <h2>Files</h2>
+            folders_html += f'<li><a href="{item}/">[{item}]</a></li>\n'
+
+    if folders_html:
+        html += (
+            """
+    <h2>Folders</h2>
     <ul>
-    """
+            """
+            + folders_html
+        )
+        if folders_count >= MIN_FOLDERS_FOR_NAV:
+            if up_link:
+                html += "<br>\n" + up_link
+            html += """
+    <nav>
+        <a href="#" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); return false;">[Back to Top]</a>
+    </nav>
+                """
+        html += """
+    </ul>"""
+
+    files_html = ""
     for item in items:
         item_path = os.path.join(directory, item)
         if os.path.isfile(item_path):
             _, ext = os.path.splitext(item)
-
             if ext == "" and item.startswith("."):
                 ext = item[1:]
             else:
@@ -280,10 +354,28 @@ def generate_index(directory, all_filetypes, base_dir):
                 continue
             file_size = os.path.getsize(item_path)
             formatted_size = format_file_size(file_size)
-            html += f'<li><span class="file-size">[{formatted_size}]</span> <a href="{item}">{item}</a></li>\n'
+            files_html += f'<li><span class="file-size">[{formatted_size}]</span> <a href="{item}">{item}</a></li>\n'
+
+    if files_html:
+        html += (
+            """
+    <h2>Files</h2>
+    <ul>
+            """
+            + files_html
+        )
+
+        if files_count >= MIN_FILES_FOR_NAV:
+            if up_link:
+                html += "<br>\n" + up_link
+            html += """
+    <nav>
+        <a href="#" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); return false;">[Back to Top]</a>
+    </nav>
+                """
+        html += "</ul>\n"
+
     html += """
-    </ul>
-    <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});">Back to Top</button>
     <script>
         function performSearch() {
             const query = document.getElementById("search").value.toLowerCase();
@@ -346,10 +438,10 @@ if __name__ == "__main__":
     site_ver = sys.argv[1].lower()
 
     if site_ver == "na":
-        MIRROR_NAME = "Main site"
+        MIRROR_NAME = "EU site"
         MIRROR_URL = "https://files.femboy.kz"
     elif site_ver == "eu":
-        MIRROR_NAME = "NA Mirror"
+        MIRROR_NAME = "NA Site"
         MIRROR_URL = "https://files-na.femboy.kz"
     else:
         print("Invalid site version. Use 'eu' or 'na'.")
