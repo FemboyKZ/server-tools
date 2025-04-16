@@ -1,4 +1,5 @@
 import os
+import sys
 
 # CFG
 EXCLUDE_MARKER = "EXCLUDE_FOLDER"
@@ -20,10 +21,24 @@ def get_filetypes(directory):
     return sorted(filetypes)
 
 
+def format_file_size(bytes_size):
+    if bytes_size >= 1024 * 1024:
+        return f"{round(bytes_size / (1024 * 1024), 1)} MB"
+    elif bytes_size >= 1024:
+        return f"{round(bytes_size / 1024, 1)} KB"
+    else:
+        return f"{bytes_size} bytes"
+
+
 def generate_html(directory, filetype, all_filetypes, base_dir):
     up_link = ""
     if os.path.abspath(directory) != os.path.abspath(base_dir):
-        up_link = '<li><a href="../index.html">[Go Back]</a></li>\n'
+        up_link = '<li><a href="../">[Go Back]</a></li>\n'
+
+    relative_path = os.path.relpath(directory, base_dir).replace(os.path.sep, "/")
+    mirror_link = (
+        f"{MIRROR_URL}/{relative_path}/" if relative_path != "." else MIRROR_URL + "/"
+    )
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -83,11 +98,16 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
         if ft != filetype:
             html += f' | <a href="{ft}.html">[{ft.upper()}]</a>'
 
-    html += """
+    html += f"""
     </nav>
     <br>
-    <input type="text" id="searchInput" placeholder="Search... :3" style="margin-bottom: 20px; padding: 5px;">
+    <input type="text" id="search" placeholder="Search... :3" style="margin-bottom: 20px; padding: 5px;">
     <br>
+    <nav>
+        <a href="{mirror_link}">[{MIRROR_NAME}]</a>
+    </nav>
+    <br>
+    <h2>Folders</h2>
     <ul>
     """
 
@@ -102,21 +122,20 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
     for item in items:
         item_path = os.path.join(directory, item)
         if os.path.isdir(item_path):
-            html += f'<li><a href="{item}/index.html">[{item}]</a></li>\n'
+            html += f'<li><a href="{item}/">[{item}]</a></li>\n'
+
+    html += """
+    </ul>
+    <h2>Files</h2>
+    <ul>
+    """
 
     for item in items:
         item_path = os.path.join(directory, item)
-        if os.path.isfile(item_path):
-            _, ext = os.path.splitext(item)
-
-            if ext == "" and item.startswith("."):
-                ext = item[1:]
-            else:
-                ext = ext.lstrip(".").lower()
-            if ext in IGNORED_FILETYPES:
-                continue
+        if os.path.isfile(item_path) and item.lower().endswith(f".{filetype}"):
             file_size = os.path.getsize(item_path)
-            html += f'<li><span class="file-size">[{file_size} bytes]</span> <a href="{item}">{item}</a></li>\n'
+            formatted_size = format_file_size(file_size)
+            html += f'<li><span class="file-size">[{formatted_size}]</span> <a href="{item}">{item}</a></li>\n'
 
     if up_link:
         html += "<br>\n" + up_link
@@ -126,7 +145,7 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
     <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});">Back to Top</button>
     <script>
         function performSearch() {
-            const query = document.getElementById("searchInput").value.toLowerCase();
+            const query = document.getElementById("search").value.toLowerCase();
             const items = document.querySelectorAll("li");
             items.forEach(item => {
                 const text = item.textContent.toLowerCase();
@@ -134,14 +153,14 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
             });
         }
 
-        document.getElementById("searchInput").addEventListener("input", performSearch);
+        document.getElementById("search").addEventListener("input", performSearch);
 
         const urlParams = new URLSearchParams(window.location.search);
         const searchTerm = urlParams.get('search');
   
         if (searchTerm) {
-            const searchInput = document.getElementById("searchInput");
-            searchInput.value = searchTerm; // Fill the input with the search term
+            const search = document.getElementById("search");
+            search.value = searchTerm; // Fill the input with the search term
             performSearch(); // Trigger the search
         }
     </script>
@@ -157,7 +176,12 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
 def generate_index(directory, all_filetypes, base_dir):
     up_link = ""
     if os.path.abspath(directory) != os.path.abspath(base_dir):
-        up_link = '<li><a href="../index.html">[Go Back]</a></li>\n'
+        up_link = '<li><a href="../">[Go Back]</a></li>\n'
+
+    relative_path = os.path.relpath(directory, base_dir).replace(os.path.sep, "/")
+    mirror_link = (
+        f"{MIRROR_URL}/{relative_path}/" if relative_path != "." else MIRROR_URL + "/"
+    )
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -214,10 +238,14 @@ def generate_index(directory, all_filetypes, base_dir):
     """
     for ft in all_filetypes:
         html += f' | <a href="{ft}.html">[{ft.upper()}]</a>'
-    html += """
+    html += f"""
     </nav>
     <br>
-    <input type="text" id="searchInput" placeholder="Search... :3" style="margin-bottom: 20px; padding: 5px;">
+    <input type="text" id="search" placeholder="Search... :3" style="margin-bottom: 20px; padding: 5px;">
+    <br>
+    <nav>
+        <a href="{mirror_link}">[{MIRROR_NAME}]</a>
+    </nav>
     <br>
     <h2>Folders</h2>
     <ul>
@@ -233,7 +261,7 @@ def generate_index(directory, all_filetypes, base_dir):
     for item in items:
         item_path = os.path.join(directory, item)
         if os.path.isdir(item_path):
-            html += f'<li><a href="{item}/index.html">[{item}]</a></li>\n'
+            html += f'<li><a href="{item}/">[{item}]</a></li>\n'
     html += """
     </ul>
     <h2>Files</h2>
@@ -251,13 +279,14 @@ def generate_index(directory, all_filetypes, base_dir):
             if ext in IGNORED_FILETYPES:
                 continue
             file_size = os.path.getsize(item_path)
-            html += f'<li><span class="file-size">[{file_size} bytes]</span> <a href="{item}">{item}</a></li>\n'
+            formatted_size = format_file_size(file_size)
+            html += f'<li><span class="file-size">[{formatted_size}]</span> <a href="{item}">{item}</a></li>\n'
     html += """
     </ul>
     <button onclick="window.scrollTo({top: 0, behavior: 'smooth'});">Back to Top</button>
     <script>
         function performSearch() {
-            const query = document.getElementById("searchInput").value.toLowerCase();
+            const query = document.getElementById("search").value.toLowerCase();
             const items = document.querySelectorAll("li");
             items.forEach(item => {
                 const text = item.textContent.toLowerCase();
@@ -265,14 +294,14 @@ def generate_index(directory, all_filetypes, base_dir):
             });
         }
 
-        document.getElementById("searchInput").addEventListener("input", performSearch);
+        document.getElementById("search").addEventListener("input", performSearch);
 
         const urlParams = new URLSearchParams(window.location.search);
         const searchTerm = urlParams.get('search');
   
         if (searchTerm) {
-            const searchInput = document.getElementById("searchInput");
-            searchInput.value = searchTerm; // Fill the input with the search term
+            const search = document.getElementById("search");
+            search.value = searchTerm; // Fill the input with the search term
             performSearch(); // Trigger the search
         }
     </script>
@@ -310,4 +339,20 @@ def main(directory="."):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: python3 update_webserver.py <eu/na>")
+        sys.exit(1)
+
+    site_ver = sys.argv[1].lower()
+
+    if site_ver == "na":
+        MIRROR_NAME = "Main site"
+        MIRROR_URL = "https://files.femboy.kz"
+    elif site_ver == "eu":
+        MIRROR_NAME = "NA Mirror"
+        MIRROR_URL = "https://files-na.femboy.kz"
+    else:
+        print("Invalid site version. Use 'eu' or 'na'.")
+        sys.exit(1)
+
     main()
