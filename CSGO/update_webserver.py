@@ -97,17 +97,6 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
             color: fuchsia;
             white-space: pre;
         }}
-        button {{
-            margin-top: 20px;
-            padding: 8px 12px;
-            background-color: rgb(255,80,164);
-            color: white;
-            border: none;
-            cursor: pointer;
-        }}
-        button:hover {{
-            background-color: rgb(135,1,66);
-        }}
     </style>
     <link rel="shortcut icon" href="https://files.femboy.kz/web/images/fucker.ico">
 </head>
@@ -284,17 +273,6 @@ def generate_index(directory, all_filetypes, base_dir):
             margin-right: 10px;
             color: fuchsia;
             white-space: pre;
-        }}
-        button {{
-            margin-top: 20px;
-            padding: 8px 12px;
-            background-color: rgb(255,80,164);
-            color: white;
-            border: none;
-            cursor: pointer;
-        }}
-        button:hover {{
-            background-color: rgb(135,1,66);
         }}
     </style>
     <link rel="shortcut icon" href="https://files.femboy.kz/web/images/fucker.ico">
