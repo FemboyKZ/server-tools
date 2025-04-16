@@ -62,7 +62,7 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
     html = f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>FKZ Files - .{filetype.upper()} - /{os.path.basename(os.path.abspath(directory))}/</title>
+    <title>FKZ File Index - {MIRROR_TAG} - .{filetype.upper()} - /{os.path.basename(os.path.abspath(directory))}/</title>
     <style>
         body {{
             background-color: rgb(105, 64, 83);
@@ -110,7 +110,7 @@ def generate_html(directory, filetype, all_filetypes, base_dir):
     <link rel="shortcut icon" href="https://files.femboy.kz/web/images/fucker.ico">
 </head>
 <body>
-    <h1>FKZ Files - .{filetype.upper()} - /{os.path.basename(os.path.abspath(directory))}/</h1>
+    <h1>FKZ File Index - {MIRROR_TAG} - .{filetype.upper()} - /{os.path.basename(os.path.abspath(directory))}/</h1>
     <nav>
         <a href="./">[Home]</a>"""
 
@@ -246,7 +246,7 @@ def generate_index(directory, all_filetypes, base_dir):
     html = f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>FKZ File Index - /{os.path.basename(os.path.abspath(directory))}/</title>
+    <title>FKZ File Index - {MIRROR_TAG} - /{os.path.basename(os.path.abspath(directory))}/</title>
     <style>
         body {{
             background-color: rgb(105, 64, 83);
@@ -294,7 +294,7 @@ def generate_index(directory, all_filetypes, base_dir):
     <link rel="shortcut icon" href="https://files.femboy.kz/web/images/fucker.ico">
 </head>
 <body>
-    <h1>FKZ File Index - /{os.path.basename(os.path.abspath(directory))}/</h1>
+    <h1>FKZ File Index - {MIRROR_TAG} - /{os.path.basename(os.path.abspath(directory))}/</h1>
     <nav>
     """
     for ft in all_filetypes:
@@ -439,9 +439,11 @@ if __name__ == "__main__":
 
     if site_ver == "na":
         MIRROR_NAME = "EU site"
+        MIRROR_TAG = "EU"
         MIRROR_URL = "https://files.femboy.kz"
     elif site_ver == "eu":
         MIRROR_NAME = "NA Site"
+        MIRROR_TAG = "NA"
         MIRROR_URL = "https://files-na.femboy.kz"
     else:
         print("Invalid site version. Use 'eu' or 'na'.")
