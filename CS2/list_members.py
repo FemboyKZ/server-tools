@@ -23,7 +23,7 @@ if __name__ == "__main__":
     if len(sys.argv) < 3:
         print("Usage: python3 list_members.py <txt_file_name> <group_url>")
         sys.exit(1)
-    txt_name = f"{sys.argv[1]}.txt"
+    txt_name = sys.argv[1]
     group_url_name = sys.argv[2]
     fetch_and_save_member_ids(group_url_name)
     print(f"Member IDs have been saved to {txt_name}.txt")
