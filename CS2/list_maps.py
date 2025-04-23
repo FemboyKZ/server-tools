@@ -38,8 +38,9 @@ for root, dirs, files in os.walk(folder):
                 continue
 
             vpk_names.append(base_name)
+            sorted_names = sorted(vpk_names)
 
 with open(output, "w") as f:
-    f.write("\n".join(vpk_names))
+    f.write("\n".join(sorted_names))
 
-print(f"Found {len(vpk_names)} VPK files, results saved to {output}")
+print(f"Found {len(sorted_names)} VPK files, results saved to {output}")
