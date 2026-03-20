@@ -18,11 +18,6 @@ These tools are WIP and wiki for them is missing/incomplete!!!
 | CSGO Scripts                                      | Script description                                              |
 | :------------------------------------------------ | :-------------------------------------------------------------- |
 | [find_missing_maps.py](CSGO/find_missing_maps.py) | Find missing maps in folder by comparing filenames to mapcycle. |
-| [update_webserver.py](CSGO/update_webserver.py)   | Update FASTDL fileserver with pretty html stuff.                |
-
-| Other scripts | Script description                        |
-| :------------ | :---------------------------------------- |
-| [FKZ](FKZ)    | FKZ specific scripts that can be ignored. |
 
 ## Usage
 
